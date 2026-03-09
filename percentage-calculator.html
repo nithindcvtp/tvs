@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Percentage Calculator</title>
+
+<style>
+
+body{
+font-family:Segoe UI,Arial;
+background:#f4f6fb;
+margin:0;
+padding:20px;
+}
+
+.container{
+max-width:900px;
+margin:auto;
+}
+
+h1{
+text-align:center;
+margin-bottom:30px;
+color:#333;
+}
+
+.card{
+background:white;
+padding:25px;
+margin-bottom:25px;
+border-radius:12px;
+box-shadow:0 6px 18px rgba(0,0,0,0.08);
+}
+
+.calc-row{
+display:flex;
+flex-wrap:wrap;
+align-items:center;
+gap:10px;
+font-size:18px;
+}
+
+input{
+padding:8px;
+border-radius:6px;
+border:1px solid #ccc;
+width:90px;
+font-size:16px;
+}
+
+.result{
+margin-top:15px;
+font-size:22px;
+font-weight:bold;
+color:#1a73e8;
+}
+
+.example{
+margin-top:12px;
+background:#eef2f8;
+padding:10px;
+border-radius:6px;
+font-size:14px;
+color:#444;
+}
+
+.example b{
+color:#333;
+}
+
+@media(max-width:600px){
+
+.calc-row{
+font-size:16px;
+}
+
+input{
+width:70px;
+}
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>Percentage Calculator</h1>
+
+<!-- Calculator 1 -->
+
+<div class="card">
+
+<div class="calc-row">
+
+What is 
+
+<input type="number" id="p1" oninput="calc1()">
+
+% of 
+
+<input type="number" id="p2" oninput="calc1()">
+
+?
+
+</div>
+
+<div class="result" id="r1"></div>
+
+<div class="example">
+<b>Example:</b> 10% of 200 = 20
+</div>
+
+</div>
+
+
+<!-- Calculator 2 -->
+
+<div class="card">
+
+<div class="calc-row">
+
+<input type="number" id="p3" oninput="calc2()">
+
+is what percent of 
+
+<input type="number" id="p4" oninput="calc2()">
+
+?
+
+</div>
+
+<div class="result" id="r2"></div>
+
+<div class="example">
+<b>Example:</b> 50 is what percent of 200 → 25%
+</div>
+
+</div>
+
+
+<!-- Calculator 3 -->
+
+<div class="card">
+
+<div class="calc-row">
+
+What is the percentage increase/decrease from 
+
+<input type="number" id="p5" oninput="calc3()">
+
+to 
+
+<input type="number" id="p6" oninput="calc3()">
+
+?
+
+</div>
+
+<div class="result" id="r3"></div>
+
+<div class="example">
+<b>Example:</b> From 100 to 150 → 50% increase
+</div>
+
+</div>
+
+</div>
+
+<script>
+
+function calc1(){
+
+let p=document.getElementById("p1").value;
+let n=document.getElementById("p2").value;
+
+if(p && n){
+
+let result=(p/100)*n;
+
+document.getElementById("r1").innerHTML=result.toFixed(2);
+
+}else{
+
+document.getElementById("r1").innerHTML="";
+
+}
+
+}
+
+
+function calc2(){
+
+let a=document.getElementById("p3").value;
+let b=document.getElementById("p4").value;
+
+if(a && b){
+
+let result=(a/b)*100;
+
+document.getElementById("r2").innerHTML=result.toFixed(2)+"%";
+
+}else{
+
+document.getElementById("r2").innerHTML="";
+
+}
+
+}
+
+
+function calc3(){
+
+let start=document.getElementById("p5").value;
+let end=document.getElementById("p6").value;
+
+if(start && end){
+
+let change=((end-start)/start)*100;
+
+let type="increase";
+
+if(change<0){
+type="decrease";
+}
+
+document.getElementById("r3").innerHTML=
+Math.abs(change).toFixed(2)+"% "+type;
+
+}else{
+
+document.getElementById("r3").innerHTML="";
+
+}
+
+}
+
+</script>
+
+</body>
+</html>
