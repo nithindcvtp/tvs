@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>EV Vehicle Analytics Dashboard</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+
+body{
+font-family:Segoe UI;
+background:#0f172a;
+color:white;
+margin:0;
+padding:30px;
+}
+
+h1{
+text-align:center;
+margin-bottom:30px;
+}
+
+.container{
+max-width:1100px;
+margin:auto;
+}
+
+.grid{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+.card{
+background:#1e293b;
+padding:20px;
+border-radius:10px;
+}
+
+input{
+width:100%;
+padding:8px;
+margin-bottom:12px;
+border-radius:6px;
+border:none;
+}
+
+button{
+width:100%;
+padding:12px;
+background:#22c55e;
+border:none;
+border-radius:8px;
+font-size:16px;
+cursor:pointer;
+}
+
+.results{
+margin-top:30px;
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:15px;
+}
+
+.result-card{
+background:#1e293b;
+padding:15px;
+border-radius:8px;
+text-align:center;
+}
+
+.big{
+font-size:22px;
+color:#4ade80;
+font-weight:bold;
+}
+
+.charts{
+margin-top:40px;
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:30px;
+}
+
+canvas{
+background:#1e293b;
+padding:10px;
+border-radius:10px;
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>EV Vehicle Statistics Dashboard</h1>
+
+<div class="grid">
+
+<div class="card">
+
+<label>Purchase Date</label>
+<input type="date" id="purchaseDate" value="2024-07-15">
+
+<label>Total KM Driven</label>
+<input type="number" id="km" value="12000">
+
+<label>Vehicle Price (₹)</label>
+<input type="number" id="price" value="135000">
+
+<label>Recovery Target Distance (km)</label>
+<input type="number" id="targetKm" value="50000">
+
+</div>
+
+<div class="card">
+
+<label>Battery Size (kWh)</label>
+<input type="number" id="battery" value="3">
+
+<label>Range per Charge (km)</label>
+<input type="number" id="range" value="105">
+
+<label>Electricity Cost (₹ per unit)</label>
+<input type="number" id="unitCost" value="6">
+
+<label>Petrol Mileage (km/L)</label>
+<input type="number" id="mileage" value="35">
+
+<label>Petrol Price (₹)</label>
+<input type="number" id="petrolPrice" value="106">
+
+<label>Battery Lifetime Cycles</label>
+<input type="number" id="batteryCycles" value="1000">
+
+</div>
+
+</div>
+
+<br>
+
+<button onclick="calculate()">Calculate Statistics</button>
+
+<div class="results" id="results"></div>
+
+<div class="charts">
+
+<canvas id="savingsChart"></canvas>
+<canvas id="costChart"></canvas>
+
+</div>
+
+</div>
+
+<script>
+
+let savingsChart;
+let costChart;
+
+function calculate(){
+
+let purchase=new Date(document.getElementById("purchaseDate").value);
+let today=new Date();
+
+let days=(today-purchase)/(1000*60*60*24);
+
+let vehicleAgeDays=Math.floor(days);
+let vehicleAgeMonths=(days/30.44).toFixed(1);
+let vehicleAgeYears=(days/365).toFixed(2);
+
+let km=parseFloat(document.getElementById("km").value);
+let targetKm=parseFloat(document.getElementById("targetKm").value);
+
+let battery=parseFloat(document.getElementById("battery").value);
+let range=parseFloat(document.getElementById("range").value);
+let unitCost=parseFloat(document.getElementById("unitCost").value);
+
+let mileage=parseFloat(document.getElementById("mileage").value);
+let petrolPrice=parseFloat(document.getElementById("petrolPrice").value);
+
+let batteryCycles=parseFloat(document.getElementById("batteryCycles").value);
+
+
+// VEHICLE USAGE
+
+let kmPerDay=km/days;
+let kmPerYear=kmPerDay*365;
+let kmPerMonth=kmPerYear/12;
+
+
+// ELECTRIC COST
+
+let charges=km/range;
+let unitsUsed=charges*battery;
+let electricCost=unitsUsed*unitCost;
+
+
+// PETROL COST
+
+let petrolLiters=km/mileage;
+let petrolCost=petrolLiters*petrolPrice;
+
+let savings=petrolCost-electricCost;
+
+
+// SAVINGS PER KM
+
+let petrolCostPerKm=petrolPrice/mileage;
+let electricCostPerKm=battery/range*unitCost;
+
+let savingPerKm=petrolCostPerKm-electricCostPerKm;
+
+
+// RECOVERY
+
+let recoveryPerYear=savingPerKm*kmPerYear;
+let recoveredAmount=savingPerKm*km;
+
+let remainingKm=targetKm-km;
+
+let yearsToRecover=targetKm/kmPerYear;
+
+let recoveryYear=new Date(purchase);
+recoveryYear.setFullYear(recoveryYear.getFullYear()+yearsToRecover);
+
+
+// MONTHLY ELECTRICITY
+
+let monthlyElectricCost=(kmPerMonth/range)*battery*unitCost;
+
+
+// BATTERY CYCLES
+
+let cyclesCompleted=charges;
+let cyclesRemaining=batteryCycles-cyclesCompleted;
+
+if(cyclesRemaining<0) cyclesRemaining=0;
+
+
+// REMAINING ELECTRIC UNITS
+
+let chargesRemaining=remainingKm/range;
+let remainingUnits=chargesRemaining*battery;
+
+
+// BATTERY DEGRADATION
+
+let degradation=(cyclesCompleted/batteryCycles)*20;
+
+if(degradation>20) degradation=20;
+
+let remainingCapacity=100-degradation;
+let predictedRange=range*(remainingCapacity/100);
+
+
+// RESULTS
+
+document.getElementById("results").innerHTML=`
+
+<div class="result-card"><div>Vehicle Age</div><div class="big">${vehicleAgeDays} days</div></div>
+
+<div class="result-card"><div>Age (Months)</div><div class="big">${vehicleAgeMonths}</div></div>
+
+<div class="result-card"><div>Age (Years)</div><div class="big">${vehicleAgeYears}</div></div>
+
+<div class="result-card"><div>KM / Day</div><div class="big">${kmPerDay.toFixed(1)}</div></div>
+
+<div class="result-card"><div>KM / Year</div><div class="big">${kmPerYear.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Units Used</div><div class="big">${unitsUsed.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Electric Cost</div><div class="big">₹${electricCost.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Petrol Cost</div><div class="big">₹${petrolCost.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Total Savings</div><div class="big">₹${savings.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Monthly Electric Cost</div><div class="big">₹${monthlyElectricCost.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Recovery / Year</div><div class="big">₹${recoveryPerYear.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Total Recovered</div><div class="big">₹${recoveredAmount.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Remaining KM</div><div class="big">${remainingKm.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Units Needed to Recover</div><div class="big">${remainingUnits.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Battery Cycles Used</div><div class="big">${cyclesCompleted.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Cycles Remaining</div><div class="big">${cyclesRemaining.toFixed(0)}</div></div>
+
+<div class="result-card"><div>Battery Degradation</div><div class="big">${degradation.toFixed(1)}%</div></div>
+
+<div class="result-card"><div>Predicted Range</div><div class="big">${predictedRange.toFixed(1)} km</div></div>
+
+<div class="result-card"><div>Recovery Year</div><div class="big">${recoveryYear.getFullYear()}</div></div>
+
+`;
+
+
+// SAVINGS GRAPH
+
+let years=[];
+let savingsData=[];
+
+for(let i=0;i<=yearsToRecover;i++){
+
+years.push(i);
+
+let kmYear=kmPerYear*i;
+
+let save=savingPerKm*kmYear;
+
+savingsData.push(save);
+
+}
+
+if(savingsChart) savingsChart.destroy();
+
+savingsChart=new Chart(document.getElementById("savingsChart"),{
+
+type:'line',
+
+data:{
+labels:years,
+datasets:[{
+label:'Total Savings ₹',
+data:savingsData,
+borderColor:'#22c55e',
+tension:0.3
+}]
+}
+
+});
+
+
+// COST GRAPH
+
+if(costChart) costChart.destroy();
+
+costChart=new Chart(document.getElementById("costChart"),{
+
+type:'bar',
+
+data:{
+labels:["Electric Cost","Petrol Cost"],
+datasets:[{
+label:"Cost ₹",
+data:[electricCost,petrolCost],
+backgroundColor:["#22c55e","#ef4444"]
+}]
+}
+
+});
+
+}
+
+</script>
+
+</body>
+</html>
