@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>UPI QR Code Generator - Merchant Payment</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"/>
+  <style>
+    :root {
+      --primary: #0066cc;
+      --primary-dark: #004c99;
+      --light-bg: #f8faff;
+      --gray: #555;
+      --border: #d0d9e4;
+    }
+
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #eef2ff 0%, #f8faff 100%);
+      min-height: 100vh;
+      padding: 20px 12px;
+      color: #333;
+    }
+
+    .container {
+      max-width: 960px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr 380px;
+      gap: 32px;
+      align-items: start;
+    }
+
+    @media (max-width: 840px) {
+      .container {
+        grid-template-columns: 1fr;
+      }
+      .qr-side {
+        order: -1;
+        text-align: center;
+      }
+    }
+
+    h1 {
+      font-size: 1.8rem;
+      color: var(--primary-dark);
+      margin-bottom: 24px;
+    }
+
+    .form-section {
+      background: white;
+      border-radius: 16px;
+      padding: 28px 32px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+      border: 1px solid var(--border);
+    }
+
+    .field {
+      margin-bottom: 22px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 7px;
+      font-weight: 600;
+      color: #444;
+    }
+
+    input, select {
+      width: 100%;
+      padding: 12px 14px;
+      border: 1px solid #c3d1e0;
+      border-radius: 8px;
+      font-size: 1rem;
+      transition: all 0.15s;
+    }
+
+    input:focus, select:focus {
+      outline: none;
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(0,102,204,0.12);
+    }
+
+    .amount-row {
+      position: relative;
+    }
+
+    .amount-row input {
+      padding-left: 36px;
+    }
+
+    .rupee-symbol {
+      position: absolute;
+      left: 14px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #666;
+      font-weight: bold;
+    }
+
+    .upi-hint {
+      font-size: 0.82rem;
+      color: #666;
+      margin-top: 6px;
+    }
+
+    .btn {
+      background: var(--primary);
+      color: white;
+      border: none;
+      padding: 14px 28px;
+      font-size: 1.05rem;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-weight: 600;
+    }
+
+    .btn:hover {
+      background: var(--primary-dark);
+      transform: translateY(-1px);
+    }
+
+    .btn i {
+      font-size: 1.1rem;
+    }
+
+    /* Right side - QR */
+    .qr-side {
+      background: white;
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: 0 6px 24px rgba(0,0,0,0.08);
+      border: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .merchant-name-display {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--primary-dark);
+      margin: 16px 0 24px;
+      min-height: 1.8rem;
+    }
+
+    #qrcode {
+      width: 260px;
+      height: 260px;
+      margin: 0 auto 20px;
+      background: #f0f0f0;
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.1rem;
+      color: #777;
+      border: 8px solid #fff;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+
+    .upi-id-display {
+      font-family: monospace;
+      font-size: 1.15rem;
+      color: #0066cc;
+      margin: 16px 0 8px;
+      font-weight: 600;
+    }
+
+    .hint-text {
+      color: #555;
+      font-size: 0.95rem;
+      margin: 12px 0 20px;
+    }
+
+    .app-logos {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 20px;
+      margin-top: 24px;
+    }
+
+    .app-logos img {
+      height: 42px;
+      width: auto;
+      max-width: 140px;
+      object-fit: contain;
+      opacity: 0.92;
+      transition: opacity 0.2s, transform 0.2s;
+    }
+
+    .app-logos img:hover {
+      opacity: 1;
+      transform: scale(1.08);
+    }
+
+    footer {
+      text-align: center;
+      margin-top: 48px;
+      color: #777;
+      font-size: 0.9rem;
+    }
+  </style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="form-section">
+    <h1>Create UPI Payment QR Code</h1>
+
+    <div class="field">
+      <label>Merchant / Payee Name</label>
+      <input type="text" id="merchantName" placeholder="Enter your business name here..." maxlength="60"/>
+    </div>
+
+    <div class="field">
+      <label>Payment Address Type</label>
+      <select id="addressType">
+        <option>UPI Address</option>
+        <option disabled>Mobile Number (coming soon)</option>
+        <option disabled>Aadhaar Number (coming soon)</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label>UPI ID</label>
+      <input type="text" id="upiId" placeholder="yourname@upi" />
+      <div class="upi-hint">example: merchant@okaxis, business@ibl, name@ybl, name@axl etc.</div>
+    </div>
+
+    <div class="field">
+      <label>Transaction Amount (₹)</label>
+      <div class="amount-row">
+        <span class="rupee-symbol">₹</span>
+        <input type="number" id="amount" placeholder="Enter amount" min="1" step="0.01"/>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Description / Notes</label>
+      <input type="text" id="note" placeholder="Enter transaction description here..." maxlength="80"/>
+    </div>
+
+    <button class="btn" id="generateBtn">
+      <i class="fa fa-qrcode"></i> Generate & Download QR Code
+    </button>
+  </div>
+
+  <!-- QR Preview Side -->
+  <div class="qr-side">
+    <div class="merchant-name-display" id="displayName">MERCHANT NAME</div>
+
+    <div id="qrcode">Fill details → Generate QR</div>
+
+    <div class="upi-id-display" id="displayUpi">merchant@upi</div>
+
+    <div class="hint-text">
+      Scan and pay with any BHIM UPI app
+    </div>
+
+    <div class="app-logos">
+      <img src="https://upload.wikimedia.org/wikipedia/commons/f/f2/Google_Pay_Logo.svg" alt="Google Pay" loading="lazy"/>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/7/71/PhonePe_Logo.svg" alt="PhonePe" loading="lazy"/>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/2/24/Paytm_Logo_%28standalone%29.svg" alt="Paytm" loading="lazy"/>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/2/29/Amazon_Pay_logo.svg" alt="Amazon Pay" loading="lazy"/>
+      <img src="https://upload.wikimedia.org/wikipedia/commons/6/65/BHIM_logo.svg" alt="BHIM" loading="lazy"/>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  BHIM • UPI • Unified Payments Interface • Made with ❤️ in India
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+  const merchantInput = document.getElementById('merchantName');
+  const upiInput      = document.getElementById('upiId');
+  const amountInput   = document.getElementById('amount');
+  const noteInput     = document.getElementById('note');
+  const generateBtn   = document.getElementById('generateBtn');
+
+  const displayName   = document.getElementById('displayName');
+  const displayUpi    = document.getElementById('displayUpi');
+  const qrContainer   = document.getElementById('qrcode');
+
+  let currentQR = null;
+
+  function updateDisplay() {
+    displayName.textContent = merchantInput.value.trim() || "MERCHANT NAME";
+    displayUpi.textContent  = upiInput.value.trim() || "merchant@upi";
+  }
+
+  function generateQR() {
+    const name  = merchantInput.value.trim();
+    const upi   = upiInput.value.trim();
+    const amt   = amountInput.value.trim();
+    const note  = noteInput.value.trim();
+
+    if (!upi) {
+      alert("Please enter a valid UPI ID (e.g., yourname@upi)");
+      return;
+    }
+
+    // Build UPI deep link (standard format)
+    let upiString = `upi://pay?pa=${encodeURIComponent(upi)}`;
+
+    if (name)  upiString += `&pn=${encodeURIComponent(name)}`;
+    if (amt && parseFloat(amt) > 0) {
+      upiString += `&am=${amt}&mam=${amt}`;
+    }
+    if (note)  upiString += `&tn=${encodeURIComponent(note)}`;
+
+    upiString += `&cu=INR&mode=02`;  // mode=02 = collect request style
+
+    // Clear old QR
+    qrContainer.innerHTML = '';
+
+    currentQR = new QRCode(qrContainer, {
+      text: upiString,
+      width: 240,
+      height: 240,
+      colorDark: "#000000",
+      colorLight: "#ffffff",
+      correctLevel: QRCode.CorrectLevel.H
+    });
+
+    // Optional: auto-download after generation
+    setTimeout(() => {
+      const canvas = qrContainer.querySelector('canvas');
+      if (canvas) {
+        const link = document.createElement('a');
+        link.download = `${name || 'merchant'}-upi-qr.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+      }
+    }, 800);
+  }
+
+  // Live preview
+  merchantInput.addEventListener('input', updateDisplay);
+  upiInput.addEventListener('input', updateDisplay);
+
+  // Generate on button click
+  generateBtn.addEventListener('click', generateQR);
+
+  // Enter key support
+  document.querySelectorAll('input').forEach(el => {
+    el.addEventListener('keypress', e => {
+      if (e.key === 'Enter') generateQR();
+    });
+  });
+</script>
+
+</body>
+</html>
