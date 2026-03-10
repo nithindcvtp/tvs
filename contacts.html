@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Contacts</title>
+
+<style>
+
+body{
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+margin:0;
+background:#fff;
+}
+
+header{
+display:flex;
+justify-content:center;
+align-items:center;
+padding:15px;
+font-size:20px;
+font-weight:600;
+border-bottom:1px solid #ddd;
+position:sticky;
+top:0;
+background:white;
+}
+
+.search{
+padding:10px;
+}
+
+.search input{
+width:100%;
+padding:10px;
+border-radius:10px;
+border:none;
+background:#f2f2f7;
+font-size:16px;
+}
+
+.contact{
+padding:15px;
+border-bottom:1px solid #eee;
+font-size:18px;
+cursor:pointer;
+}
+
+.contact:hover{
+background:#f2f2f7;
+}
+
+.plus{
+position:fixed;
+top:10px;
+right:15px;
+font-size:28px;
+color:#007AFF;
+cursor:pointer;
+}
+
+.profile{
+position:fixed;
+top:0;
+left:0;
+right:0;
+bottom:0;
+background:white;
+display:none;
+padding:20px;
+}
+
+.profile h2{
+margin-top:0;
+}
+
+button{
+padding:10px;
+border:none;
+border-radius:8px;
+margin:5px;
+}
+
+.call{
+background:#34C759;
+color:white;
+}
+
+.edit{
+background:#007AFF;
+color:white;
+}
+
+.delete{
+background:#FF3B30;
+color:white;
+}
+
+.favorite{
+background:#FFD60A;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>Contacts</header>
+<div class="plus" onclick="showAdd()">+</div>
+
+<div class="search">
+<input type="text" placeholder="Search" onkeyup="search(this.value)">
+</div>
+
+<div id="contacts"></div>
+
+<div id="profile" class="profile"></div>
+
+<script>
+
+let contacts=JSON.parse(localStorage.getItem("contacts")||"[]");
+let history=JSON.parse(localStorage.getItem("history")||"[]");
+
+function save(){
+localStorage.setItem("contacts",JSON.stringify(contacts));
+}
+
+function render(list=contacts){
+
+list.sort((a,b)=>a.name.localeCompare(b.name));
+
+const container=document.getElementById("contacts");
+container.innerHTML="";
+
+list.forEach(c=>{
+
+let div=document.createElement("div");
+div.className="contact";
+
+div.innerHTML=c.favorite?"⭐ "+c.name:c.name;
+
+div.onclick=()=>openProfile(c.id);
+
+container.appendChild(div);
+
+});
+
+}
+
+function showAdd(){
+
+let name=prompt("Name");
+if(!name)return;
+
+let number=prompt("Phone Number");
+if(!number)return;
+
+contacts.push({
+id:Date.now(),
+name:name,
+number:number,
+favorite:false
+});
+
+save();
+render();
+
+}
+
+function openProfile(id){
+
+let c=contacts.find(x=>x.id==id);
+
+let p=document.getElementById("profile");
+
+p.innerHTML=`
+
+<h2>${c.name}</h2>
+<p>${c.number}</p>
+
+<button class="call" onclick="call('${c.number}')">Call</button>
+
+<button class="edit" onclick="edit(${c.id})">Edit</button>
+
+<button class="favorite" onclick="favorite(${c.id})">
+${c.favorite?"Remove Favorite":"Add Favorite"}
+</button>
+
+<button class="delete" onclick="remove(${c.id})">Delete</button>
+
+<button onclick="closeProfile()">Back</button>
+
+`;
+
+p.style.display="block";
+
+}
+
+function closeProfile(){
+document.getElementById("profile").style.display="none";
+}
+
+function call(number){
+
+history.push({
+number:number,
+time:new Date()
+});
+
+localStorage.setItem("history",JSON.stringify(history));
+
+window.location.href="tel:"+number;
+
+}
+
+function edit(id){
+
+let c=contacts.find(x=>x.id==id);
+
+let name=prompt("Edit name",c.name);
+let number=prompt("Edit number",c.number);
+
+if(name)c.name=name;
+if(number)c.number=number;
+
+save();
+render();
+openProfile(id);
+
+}
+
+function remove(id){
+
+contacts=contacts.filter(c=>c.id!=id);
+save();
+render();
+closeProfile();
+
+}
+
+function favorite(id){
+
+let c=contacts.find(x=>x.id==id);
+c.favorite=!c.favorite;
+
+save();
+render();
+openProfile(id);
+
+}
+
+function search(q){
+
+q=q.toLowerCase();
+
+let filtered=contacts.filter(c=>c.name.toLowerCase().includes(q));
+
+render(filtered);
+
+}
+
+render();
+
+</script>
+
+</body>
+</html>
