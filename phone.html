@@ -1,0 +1,264 @@
+
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>Hospital Telephone Directory</title>
+
+<style>
+
+body {
+font-family:Arial;
+margin:0;
+background:#f4f7fb;
+}
+
+header {
+background:#2b6cb0;
+color:white;
+padding:8px 0;
+text-align:center;
+}
+
+header h1 {
+margin:4px 0;
+font-size:22px;
+}
+
+
+nav {
+background:#eaeaea;
+padding:10px;
+text-align:center;
+}
+
+nav a {
+margin:0 18px;
+text-decoration:none;
+color:#2f5e9e;
+font-weight:600;
+}
+
+nav select,
+nav input {
+padding:6px 10px;
+border-radius:6px;
+margin-left:6px;
+}
+
+.container {
+width:96%;
+max-width:1800px;
+margin:auto;
+padding:20px;
+}
+
+/* RESPONSIVE GRID */
+.grid {
+column-count:4;
+column-gap:25px;
+}
+
+@media(max-width:1400px) {
+.grid { column-count:3; }
+}
+
+@media(max-width:900px) {
+.grid { column-count:2; }
+}
+
+@media(max-width:600px) {
+.grid { column-count:1; }
+}
+
+.card {
+display:inline-block;
+width:100%;
+margin-bottom:25px;
+box-sizing:border-box;
+background:white;
+padding:18px;
+border-radius:14px;
+box-shadow:0 4px 12px rgba(0,0,0,0.08);
+break-inside:avoid;
+height:auto;
+}
+
+@media(max-width:900px) {
+.grid { column-count:2; }
+}
+
+@media(max-width:600px) {
+.grid { column-count:1; }
+}
+
+table {
+width:100%;
+border-collapse:collapse;
+table-layout:fixed;
+}
+
+th:nth-child(1),
+td:nth-child(1) {
+width:60%;
+text-align:left;
+}
+
+th:nth-child(2),
+td:nth-child(2) {
+width:20%;
+text-align:center;
+}
+
+th:nth-child(3),
+td:nth-child(3) {
+width:20%;
+text-align:center;
+word-break:break-word;
+overflow-wrap:anywhere;
+}
+td {
+word-break:break-word;
+}
+
+
+
+th,td {
+padding:8px;
+border-bottom:1px solid #ddd;
+}
+
+th {
+background:#e9eef6;
+}
+
+td:nth-child(2),
+td:nth-child(3) {
+text-align:center;
+}
+
+mark {
+background:yellow;
+}
+
+</style>
+</head>
+
+<body>
+
+<header>
+<h1>Hospital Telephone Directory</h1>
+</header>
+
+<nav>
+<a href="#">Home</a>
+<select id="deptFilter"><option value="all">All Departments</option><option value="CHAIRMAN">CHAIRMAN</option><option value="MANAGING TRUSTEE">MANAGING TRUSTEE</option><option value="GM">GM</option><option value="CHIEF MEDICAL  OFFICER">CHIEF MEDICAL  OFFICER</option><option value="DOCTORS">DOCTORS</option><option value="DUTY DOCTOR (NIGHT)">DUTY DOCTOR (NIGHT)</option><option value="COUNSELING">COUNSELING</option><option value="IT">IT</option><option value="BIO MEDICAL">BIO MEDICAL</option><option value="MAINTENANCE">MAINTENANCE</option><option value="MRD">MRD</option><option value="OP">OP</option><option value="OPERATION THEATRE">OPERATION THEATRE</option><option value="NURSING">NURSING</option><option value="REFRACTION">REFRACTION</option><option value="PHARMACY">PHARMACY</option><option value="OPTICALS">OPTICALS</option><option value="FRONT OFFICE">FRONT OFFICE</option><option value="PATIENT WELFARE">PATIENT WELFARE</option><option value="ACCOUNTS">ACCOUNTS</option><option value="ADMINISTRATION">ADMINISTRATION</option><option value="HR   DEPARTMENT">HR   DEPARTMENT</option><option value="ACADEMY">ACADEMY</option><option value="PRO">PRO</option><option value="EYE CARE SOCIETY">EYE CARE SOCIETY</option><option value="STORE">STORE</option><option value="QUALITY DEPARTMENT">QUALITY DEPARTMENT</option><option value="PROCEDURE ROOM">PROCEDURE ROOM</option><option value="OCCULOPLASTY">OCCULOPLASTY</option><option value="DRIVER/ATTENDER">DRIVER/ATTENDER</option><option value="OTHERS">OTHERS</option><option value="HOUSE KEEPING">HOUSE KEEPING</option><option value="HELP LINE">HELP LINE</option><option value="EMERGENCY">EMERGENCY</option></select>
+<input id="findBox" placeholder="Search here..." />
+</nav>
+
+<div class="container">
+<div class="grid">
+<div class="card" data-dept="CHAIRMAN"><h3>CHAIRMAN</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. K.K. VARMA</td><td>101</td><td>-</td></tr></table></div><div class="card" data-dept="MANAGING TRUSTEE"><h3>MANAGING TRUSTEE</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr.M.G Gopinath</td><td>175</td><td>-</td></tr></table></div><div class="card" data-dept="GM"><h3>GM</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>GP CAPT KVM ASRAF</td><td>102</td><td>5017</td></tr><tr><td>GM PA</td><td>103</td><td>-</td></tr></table></div><div class="card" data-dept="CHIEF MEDICAL  OFFICER"><h3>CHIEF MEDICAL  OFFICER</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Dr. Prakash V.S</td><td>116</td><td>5004</td></tr></table></div><div class="card" data-dept="DOCTORS"><h3>DOCTORS</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>CMO OFFICE</td><td>160</td><td>-</td></tr><tr><td>Dr. Leila Mohan</td><td>114</td><td>5001</td></tr><tr><td>Dr. Leila Mohan</td><td>152</td><td>5034</td></tr><tr><td>Dr. K.R. Bhat</td><td>133</td><td>5011</td></tr><tr><td>Dr. Bindu.S. Ajith</td><td>115</td><td>5002</td></tr><tr><td>Dr. Vijayalakshmi</td><td>153</td><td>5008</td></tr><tr><td>Dr. Seena</td><td>153</td><td>5009</td></tr><tr><td>Dr. Dhileesh P</td><td>162</td><td>5075</td></tr><tr><td>Dr. Devaki Devi</td><td>154</td><td>5006</td></tr><tr><td>Dr. Nisha</td><td>130</td><td>5013</td></tr><tr><td>Dr. Vijaykumar</td><td>-</td><td>5003</td></tr><tr><td>Dr. Aneesha</td><td>-</td><td>5101</td></tr><tr><td>Dr. Shabeeba</td><td>-</td><td>5032</td></tr><tr><td>Dr. Jesheena</td><td>-</td><td>5016</td></tr><tr><td>Dr. Priya Simon</td><td>131</td><td>5059</td></tr><tr><td>Dr. Sangeetha</td><td>-</td><td>5063</td></tr><tr><td>Dr. Sugandha  Sinha</td><td>119</td><td>5078</td></tr><tr><td>Dr. Nimitha</td><td>168</td><td>5082</td></tr><tr><td>Dr.Anju  Chandran</td><td>195</td><td>5055</td></tr><tr><td>Dr. Husna</td><td>-</td><td>5094</td></tr><tr><td>Dr.Roohi</td><td>-</td><td>5014</td></tr><tr><td>Dr.Dwideep </td><td>-</td><td>5068</td></tr><tr><td>Dr.Jamsheena</td><td>-</td><td>5107</td></tr><tr><td>Dr.Arjun</td><td>197</td><td>5097</td></tr><tr><td>Dr.Glaucoma Fellow</td><td>191</td><td>192</td></tr><tr><td>Pre Operative Ward Doctor</td><td>194</td><td>-</td></tr><tr><td>Dr.Ajana</td><td>-</td><td>5107</td></tr><tr><td>Dr.Farsana</td><td>-</td><td>5108</td></tr><tr><td>Dr.Soumya Nambiar</td><td>163</td><td>5031</td></tr><tr><td>Dr.Anjela  Jose</td><td>190</td><td>5081</td></tr></table></div><div class="card" data-dept="DUTY DOCTOR (NIGHT)"><h3>DUTY DOCTOR (NIGHT)</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>DOCTOR</td><td>167</td><td>-</td></tr></table></div><div class="card" data-dept="COUNSELING"><h3>COUNSELING</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Ms. Suchitra</td><td>177</td><td>5036</td></tr><tr><td>Counseling 33 (A WING)</td><td>118</td><td>-</td></tr><tr><td>Counseling 113 1 st FLOOR</td><td>113</td><td>176</td></tr><tr><td>Counseling 16 (A WING)</td><td>180</td><td>-</td></tr><tr><td>Counseling 49 (B WING)</td><td>159</td><td>-</td></tr><tr><td>Counselor</td><td>-</td><td>5067</td></tr><tr><td>Patient Report Desk</td><td>189</td><td>-</td></tr><tr><td>Ms. Manju</td><td>188</td><td>-</td></tr></table></div><div class="card" data-dept="IT"><h3>IT</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. Anoop</td><td>108</td><td>5058</td></tr><tr><td>Mr. Nithin</td><td>157</td><td>5077</td></tr><tr><td>Mr. Bijoy</td><td>157</td><td>5084</td></tr></table></div><div class="card" data-dept="BIO MEDICAL"><h3>BIO MEDICAL</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. Gladwin</td><td>165</td><td>5086</td></tr></table></div><div class="card" data-dept="MAINTENANCE"><h3>MAINTENANCE</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. Arjun</td><td>140</td><td>5019</td></tr><tr><td>Mr. Deepesh p</td><td>140</td><td>5020</td></tr></table></div><div class="card" data-dept="MRD"><h3>MRD</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Divya</td><td>174</td><td>-</td></tr><tr><td>Mr. Baiju</td><td>-</td><td>5087</td></tr><tr><td>Mr Abin</td><td>-</td><td>5080</td></tr></table></div><div class="card" data-dept="OP"><h3>OP</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>OP 18</td><td>133</td><td>-</td></tr><tr><td>OP 19</td><td>131</td><td>-</td></tr><tr><td>OP 22</td><td>132</td><td>-</td></tr><tr><td>OP 22 A</td><td>142</td><td>-</td></tr><tr><td>OP 23</td><td>130</td><td>-</td></tr><tr><td>OP 32</td><td>119</td><td>-</td></tr><tr><td>OP 35</td><td>116</td><td>-</td></tr><tr><td>OP 37</td><td>162</td><td>-</td></tr><tr><td>OP 38</td><td>190</td><td>-</td></tr><tr><td>OP 50</td><td>154</td><td>-</td></tr><tr><td>OP 106</td><td>168</td><td>-</td></tr><tr><td>OP 108</td><td>191</td><td>-</td></tr><tr><td>OP 109</td><td>115</td><td>-</td></tr><tr><td>OP 115</td><td>152</td><td>-</td></tr><tr><td>OP 116</td><td>114</td><td>-</td></tr><tr><td>OP118</td><td>163</td><td>-</td></tr><tr><td>OP119</td><td>217</td><td>-</td></tr><tr><td>OP 127</td><td>197</td><td>-</td></tr><tr><td>OP 128</td><td>195</td><td>-</td></tr><tr><td>OP 129</td><td>153</td><td>-</td></tr></table></div><div class="card" data-dept="OPERATION THEATRE"><h3>OPERATION THEATRE</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Wet lab</td><td>202</td><td>-</td></tr><tr><td>Lasik</td><td>161</td><td>-</td></tr><tr><td>OT Stock</td><td>158</td><td>-</td></tr><tr><td>OT Block Room</td><td>126</td><td>-</td></tr><tr><td>Ms.Praseetha</td><td>-</td><td>5052</td></tr><tr><td>OT Changing Room</td><td>200</td><td>-</td></tr><tr><td>ICU</td><td>201</td><td>-</td></tr></table></div><div class="card" data-dept="NURSING"><h3>NURSING</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Ms. Geetha P K</td><td>138</td><td>5057</td></tr><tr><td>Ms. Merina Varghese</td><td>137</td><td>5060</td></tr><tr><td>Ward</td><td>137</td><td>-</td></tr><tr><td>Ward 2</td><td>135</td><td>-</td></tr><tr><td>Tension room </td><td>155</td><td>-</td></tr><tr><td>Nursing Station 3rd floor</td><td>203</td><td>-</td></tr><tr><td>Ms. Shilpa</td><td>-</td><td>5062</td></tr><tr><td>IP Coordinator Mr. Unnikrishnan</td><td>184</td><td>5066</td></tr></table></div><div class="card" data-dept="REFRACTION"><h3>REFRACTION</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Ms.Shaniba</td><td>-</td><td>5073</td></tr><tr><td>Ms.Sreeja</td><td>-</td><td>5072</td></tr></table></div><div class="card" data-dept="PHARMACY"><h3>PHARMACY</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Pharmacy 2</td><td>127</td><td>-</td></tr><tr><td>Pharmacy</td><td>134</td><td>-</td></tr><tr><td>Mr.Sachin</td><td>181</td><td>-</td></tr><tr><td>Ms.Ranjusha</td><td>-</td><td>5051</td></tr></table></div><div class="card" data-dept="OPTICALS"><h3>OPTICALS</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Optmg</td><td>124</td><td>-</td></tr><tr><td>Mr.Shaju</td><td>-</td><td>5088</td></tr><tr><td>Ms. Geetha</td><td>123</td><td>5021</td></tr><tr><td>Billing</td><td>125</td><td>-</td></tr><tr><td>Opticals lens room</td><td>146</td><td>-</td></tr></table></div><div class="card" data-dept="FRONT OFFICE"><h3>FRONT OFFICE</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr.Abijith</td><td>183</td><td>5039</td></tr><tr><td>Counter 8-9</td><td>182</td><td>-</td></tr><tr><td>Booking1,Booking2</td><td>111</td><td>120</td></tr><tr><td>Paying counter</td><td>121</td><td>-</td></tr><tr><td>ECHS</td><td>122</td><td>-</td></tr><tr><td>Ms.Sushama</td><td>-</td><td>5037</td></tr><tr><td>Ayushman Desk</td><td>186</td><td>-</td></tr><tr><td>Help Desk First Floor</td><td>149</td><td>-</td></tr><tr><td>Help Desk Ground Floor</td><td>169</td><td>-</td></tr><tr><td>Free counter</td><td>141</td><td>-</td></tr><tr><td>Enquiry</td><td>9145</td><td>-</td></tr><tr><td>Discharge Billing</td><td>166</td><td>-</td></tr><tr><td>Counter 11</td><td>187</td><td>-</td></tr><tr><td>Ayushman PT Waiting</td><td>170</td><td>-</td></tr></table></div><div class="card" data-dept="PATIENT WELFARE"><h3>PATIENT WELFARE</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Help Desk 1st Floor</td><td>149</td><td>-</td></tr><tr><td>Help Desk Ground Floor</td><td>204</td><td>-</td></tr><tr><td>Ms. Praveena</td><td>-</td><td>5076</td></tr><tr><td>Ms.Beena</td><td>-</td><td>5056</td></tr></table></div><div class="card" data-dept="ACCOUNTS"><h3>ACCOUNTS</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. Gireesh Pushpananthan</td><td>105</td><td>5038</td></tr><tr><td>Accounts Office</td><td>107</td><td>-</td></tr><tr><td>Accounts Office</td><td>129</td><td>-</td></tr><tr><td>Accounts Office</td><td>211</td><td>-</td></tr></table></div><div class="card" data-dept="ADMINISTRATION"><h3>ADMINISTRATION</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Ms. Swapna Rani</td><td>106</td><td>5035</td></tr><tr><td>Mr. Vishal</td><td>104</td><td>5091</td></tr></table></div><div class="card" data-dept="HR   DEPARTMENT"><h3>HR   DEPARTMENT</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Ms.Rubayath.M</td><td>148</td><td>5015</td></tr></table></div><div class="card" data-dept="ACADEMY"><h3>ACADEMY</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. Ajmal ok</td><td>136</td><td>5090</td></tr></table></div><div class="card" data-dept="PRO"><h3>PRO</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. Praveen Kumar K.P</td><td>110</td><td>5018</td></tr></table></div><div class="card" data-dept="EYE CARE SOCIETY"><h3>EYE CARE SOCIETY</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. T.O. Ramachandran</td><td>109</td><td>5000</td></tr><tr><td>Mr.Sreejith</td><td>198</td><td>-</td></tr><tr><td>Mr. Sujesh T.P</td><td>147</td><td>5022</td></tr></table></div><div class="card" data-dept="STORE"><h3>STORE</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Printing Material</td><td>178</td><td>-</td></tr></table></div><div class="card" data-dept="QUALITY DEPARTMENT"><h3>QUALITY DEPARTMENT</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Ms.Prajusha</td><td>-</td><td>5098</td></tr></table></div><div class="card" data-dept="PROCEDURE ROOM"><h3>PROCEDURE ROOM</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Contact Lens 124</td><td>219</td><td>-</td></tr><tr><td>Scan ROOM 311</td><td>117</td><td>-</td></tr><tr><td>Ortho optics</td><td>171</td><td>-</td></tr><tr><td>Lab</td><td>128</td><td>-</td></tr><tr><td>OCT Spectralis 46</td><td>151</td><td>-</td></tr><tr><td>OCT 124 B</td><td>112</td><td>-</td></tr><tr><td>LVA 210</td><td>207</td><td>-</td></tr><tr><td>FFA(B WING)</td><td>156</td><td>-</td></tr></table></div><div class="card" data-dept="OCCULOPLASTY"><h3>OCCULOPLASTY</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>MS  Celia Venny</td><td>5029</td><td>5029</td></tr></table></div><div class="card" data-dept="DRIVER/ATTENDER"><h3>DRIVER/ATTENDER</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Mr. Subish</td><td>-</td><td>5069</td></tr><tr><td>Mr. Akilesh</td><td>-</td><td>5085</td></tr><tr><td>Mr. Jithendran</td><td>-</td><td>5089</td></tr></table></div><div class="card" data-dept="OTHERS"><h3>OTHERS</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>LIFT</td><td>164</td><td>-</td></tr><tr><td>Canteen</td><td>144</td><td>-</td></tr><tr><td>Conference Room</td><td>150</td><td>-</td></tr><tr><td>Security</td><td>139</td><td>5050</td></tr></table></div><div class="card" data-dept="HOUSE KEEPING"><h3>HOUSE KEEPING</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>House Keeping Supervisor</td><td>173</td><td>5074</td></tr></table></div><div class="card" data-dept="HELP LINE"><h3>HELP LINE</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>Fire</td><td>-</td><td>5026</td></tr><tr><td>Taxi</td><td>-</td><td>5065</td></tr><tr><td>KSEB Office Pottammal</td><td>-</td><td>5027</td></tr><tr><td>Police</td><td>-</td><td>5025</td></tr></table></div><div class="card" data-dept="EMERGENCY"><h3>EMERGENCY</h3><table><tr><th>Name</th><th>Ext</th><th>Mobile</th></tr><tr><td>MIMS MOBILE ICU</td><td>9847244999</td><td>5044</td></tr><tr><td>MIMS CASUALITY</td><td>0495-6791007</td><td>5047</td></tr><tr><td>MIMS MOD</td><td>8157885111</td><td>5096</td></tr><tr><td>MEDICAL COLLEGE CASUALITY
+</td><td>0495-2356531</td><td>5024</td></tr></table></div>
+</div>
+</div>
+
+<script>
+
+// Department dropdown filter
+document.getElementById('deptFilter')
+.addEventListener('change', function(){
+
+// Clear search box when department changes
+document.getElementById("findBox").value = "";
+
+// Show departments normally
+let val=this.value;
+
+document.querySelectorAll('.card').forEach(card=>{
+card.style.display =
+(val==='all'||card.dataset.dept===val)
+?'inline-block':'none';
+});
+
+// Reset hidden rows + highlights
+document.querySelectorAll("tr").forEach(r=>r.style.display="");
+document.querySelectorAll("mark").forEach(m=>{
+m.replaceWith(m.textContent);
+});
+
+});
+
+
+// LIVE SEARCH FIXED
+function findText(){
+let text=document.getElementById("findBox").value.toLowerCase();
+
+// Remove highlights
+document.querySelectorAll("mark").forEach(m=>{
+m.replaceWith(m.textContent);
+});
+
+if(!text){
+document.querySelectorAll(".card")
+.forEach(c=>c.style.display="inline-block");
+document.querySelectorAll("tr")
+.forEach(r=>r.style.display="");
+return;
+}
+
+document.querySelectorAll(".card").forEach(card=>{
+
+let dept=card.querySelector("h3")
+.innerText.toLowerCase();
+
+// ⭐ If department match → show ALL rows
+if(dept.includes(text)){
+card.style.display="inline-block";
+card.querySelectorAll("tr")
+.forEach(r=>r.style.display="");
+return;
+}
+
+let rowMatch=false;
+
+card.querySelectorAll("tr").forEach(row=>{
+if(row.querySelector("th")) return;
+
+let content=row.innerText.toLowerCase();
+
+if(content.includes(text)){
+rowMatch=true;
+row.style.display="";
+
+row.querySelectorAll("td").forEach(td=>{
+let original = td.textContent;
+
+if(original.toLowerCase().includes(text)){
+td.innerHTML = original.replace(
+new RegExp(text,"gi"),
+match=>"<mark>"+match+"</mark>"
+);
+}
+});
+
+
+
+}else{
+row.style.display="none";
+}
+});
+
+card.style.display=rowMatch
+?"inline-block":"none";
+
+});
+}
+
+document.getElementById("findBox")
+.addEventListener("keyup", findText);
+
+</script>
+
+</body>
+</html>
