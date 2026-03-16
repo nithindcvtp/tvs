@@ -1,6 +1,8 @@
 const WRITE_KEY = "G4PC4DHVDQGE876Y";
 const CHANNEL_ID = "3302262";
 
+let lastState = "UNKNOWN";
+
 // TURN RELAY ON
 function relayOn(){
 
@@ -8,15 +10,14 @@ fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=ON`)
 .then(response => response.text())
 .then(data => {
 
-console.log("Command sent: ON, entry:", data);
+console.log("Write response:", data);
 
-// wait a bit before reading status
-setTimeout(updateStatus,2000);
+// wait before checking status
+setTimeout(updateStatus,3000);
 
 });
 
 }
-
 
 // TURN RELAY OFF
 function relayOff(){
@@ -25,16 +26,15 @@ fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=OFF`)
 .then(response => response.text())
 .then(data => {
 
-console.log("Command sent: OFF, entry:", data);
+console.log("Write response:", data);
 
-setTimeout(updateStatus,2000);
+setTimeout(updateStatus,3000);
 
 });
 
 }
 
-
-// READ CURRENT STATE
+// READ STATUS FROM THINGSPEAK
 function updateStatus(){
 
 fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.txt`)
@@ -43,46 +43,27 @@ fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.txt`)
 
 state = state.trim();
 
+if(state === "ON" || state === "OFF"){
+lastState = state;
+}
+
 const el = document.getElementById("relayStatus");
 
-if(state === "ON"){
+el.textContent = "Relay is now " + lastState;
 
-el.textContent = "Relay is now ON";
-el.className = "status on";
-
-}
-
-else if(state === "OFF"){
-
-el.textContent = "Relay is now OFF";
-el.className = "status off";
-
-}
-
-else{
-
-el.textContent = "Relay status unknown";
-el.className = "status";
-
-}
+el.className = "status " + lastState.toLowerCase();
 
 })
-.catch(error => {
+.catch(err => {
 
-console.log("Status error:", error);
+console.log("Status error:", err);
 
 });
 
 }
 
-
-// AUTO REFRESH EVERY 5 SEC
+// AUTO UPDATE
 setInterval(updateStatus,5000);
 
-
-// LOAD STATUS WHEN PAGE OPENS
-window.onload = function(){
-
-updateStatus();
-
-};
+// INITIAL LOAD
+window.onload = updateStatus;
