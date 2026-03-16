@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>Smart Relay Controller</title>
+
+<link rel="stylesheet" href="style.css">
+
+</head>
+
+<body>
+
+<div class="container">
+
+<div class="card">
+
+<h2>Manual Control</h2>
+
+<div id="relayStatus" class="status off">Relay is now OFF</div>
+
+<button class="btn-on" onclick="relayOn()">Turn ON</button>
+
+<button class="btn-off" onclick="relayOff()">Turn OFF</button>
+
+</div>
+
+
+<div class="card">
+
+<h2>Add Schedule</h2>
+
+<div class="row">
+
+<label>Date</label>
+<input type="date" id="schedDate">
+
+</div>
+
+
+<div class="row">
+
+<label>ON time</label>
+
+<select id="schedOnHour"></select>
+<select id="schedOnMin"></select>
+<select id="schedOnAMPM">
+
+<option>AM</option>
+<option>PM</option>
+
+</select>
+
+</div>
+
+
+<div class="row">
+
+<label>OFF time</label>
+
+<select id="schedOffHour"></select>
+<select id="schedOffMin"></select>
+<select id="schedOffAMPM">
+
+<option>AM</option>
+<option>PM</option>
+
+</select>
+
+</div>
+
+
+<div class="checkbox-row">
+
+<input type="checkbox" id="repeat">
+<label for="repeat">Repeat every day</label>
+
+</div>
+
+<button class="btn-blue" onclick="addSchedule()">Add Schedule</button>
+
+</div>
+
+
+<div class="card">
+
+<h2>Time Settings</h2>
+
+<button class="btn-blue" onclick="setTimeFromBrowser()">
+Use Browser Time
+</button>
+
+<hr>
+
+<label><strong>Or set manually:</strong></label>
+
+<input type="datetime-local" id="manualDateTime">
+
+<button class="btn-blue" onclick="setManualTime()">
+
+Set Manual Time
+
+</button>
+
+<div>
+
+<strong>Device time:</strong>
+
+<span id="curTime">—</span>
+
+</div>
+
+</div>
+
+
+<div class="card">
+
+<h2>Scheduled Tasks</h2>
+
+<table id="scheduleTable">
+
+<thead>
+
+<tr>
+
+<th>Date</th>
+<th>ON</th>
+<th>OFF</th>
+<th>Repeat</th>
+<th></th>
+
+</tr>
+
+</thead>
+
+<tbody></tbody>
+
+</table>
+
+</div>
+
+</div>
+
+
+<script src="script.js"></script>
+
+</body>
+</html>
