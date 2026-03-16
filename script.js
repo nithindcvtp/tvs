@@ -10,17 +10,17 @@ fetch("https://api.thingspeak.com/channels/3302262/fields/1/last.txt?api_key=UNH
 .then(response => response.text())
 .then(state => {
 
-state = state.trim();
+state = state.trim().toUpperCase();
 
 const el = document.getElementById("relayStatus");
 
-if(state === "ON"){
+if(state.includes("ON")){
 
 el.textContent = "Relay is now ON";
 el.className = "status on";
 
 }
-else if(state === "OFF"){
+else if(state.includes("OFF")){
 
 el.textContent = "Relay is now OFF";
 el.className = "status off";
@@ -31,6 +31,11 @@ else{
 el.textContent = "Relay status unknown";
 
 }
+
+})
+.catch(error => {
+
+console.log("Status fetch error:", error);
 
 });
 
