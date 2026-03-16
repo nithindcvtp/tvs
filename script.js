@@ -183,12 +183,19 @@ const onTime = convertTo24(onHour,onMin,onAMPM);
 const offTime = convertTo24(offHour,offMin,offAMPM);
 
 
-alert(
-"Schedule Added\n\n" +
-"Date: " + date + "\n" +
-"ON: " + onTime + "\n" +
-"OFF: " + offTime
-);
+const table = document.querySelector("#scheduleTable tbody");
+
+const row = document.createElement("tr");
+
+row.innerHTML = `
+<td>${date}</td>
+<td>${onTime}</td>
+<td>${offTime}</td>
+<td>No</td>
+<td><button onclick="this.parentElement.parentElement.remove()">Delete</button></td>
+`;
+
+table.appendChild(row);
 
 }
 
