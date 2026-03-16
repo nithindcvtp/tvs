@@ -100,7 +100,37 @@ el.textContent = "Relay status unknown";
 
 // AUTO UPDATE EVERY 5 SECONDS
 setInterval(updateStatus,5000);
+function populateTimeSelectors(){
 
+const onHour = document.getElementById("schedOnHour");
+const onMin = document.getElementById("schedOnMin");
+
+const offHour = document.getElementById("schedOffHour");
+const offMin = document.getElementById("schedOffMin");
+
+
+// HOURS (01–12)
+for(let i=1;i<=12;i++){
+
+let h = String(i).padStart(2,"0");
+
+onHour.innerHTML += `<option value="${h}">${h}</option>`;
+offHour.innerHTML += `<option value="${h}">${h}</option>`;
+
+}
+
+
+// MINUTES (00–59)
+for(let i=0;i<60;i++){
+
+let m = String(i).padStart(2,"0");
+
+onMin.innerHTML += `<option value="${m}">${m}</option>`;
+offMin.innerHTML += `<option value="${m}">${m}</option>`;
+
+}
+
+}
 
 // INITIAL PAGE LOAD
 window.onload = function(){
