@@ -1,33 +1,33 @@
+const WRITE_KEY = "G4PC4DHVDQGE876Y";
+
+const CHANNEL_ID = "3302262";
+
 function relayOn(){
 
-console.log(Relay ON);
+fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=ON`)
+.then(()=>updateStatus())
 
 }
 
 function relayOff(){
 
-console.log(Relay OFF);
+fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=OFF`)
+.then(()=>updateStatus())
 
 }
 
-function addSchedule(){
+function updateStatus(){
 
-console.log(Add schedule);
+fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.txt`)
+.then(r=>r.text())
+.then(state=>{
 
-}
+const el = document.getElementById("relayStatus");
 
-function setTimeFromBrowser(){
+el.textContent = `Relay is now ${state}`;
 
-const now = new Date();
+el.className = "status " + state.toLowerCase();
 
-console.log(now);
-
-}
-
-function setManualTime(){
-
-let t = document.getElementById(manualDateTime).value;
-
-console.log(t);
+})
 
 }
