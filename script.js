@@ -189,7 +189,11 @@ offMin.add(new Option(m,m));
 
 }
 
+function addSchedule(){
 
+alert("Add Schedule button is working");
+
+}
 // INITIAL PAGE LOAD
 window.onload = function(){
 
