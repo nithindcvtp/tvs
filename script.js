@@ -3,18 +3,12 @@ const READ_KEY  = "UNH00NSYZ84WVY1E";
 const CHANNEL_ID = "3302262";
 
 
-// TURN RELAY ON
 function relayOn(){
 
+document.getElementById("relayStatus").textContent = "Sending ON command...";
+
 fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=ON`)
-.then(r => r.text())
-.then(data => {
-
-console.log("Write response:", data);
-
-setTimeout(updateStatus,2000);
-
-});
+.then(()=>setTimeout(updateStatus,2000));
 
 }
 
@@ -22,15 +16,10 @@ setTimeout(updateStatus,2000);
 // TURN RELAY OFF
 function relayOff(){
 
+document.getElementById("relayStatus").textContent = "Sending OFF command...";
+
 fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=OFF`)
-.then(r => r.text())
-.then(data => {
-
-console.log("Write response:", data);
-
-setTimeout(updateStatus,2000);
-
-});
+.then(()=>setTimeout(updateStatus,2000));
 
 }
 
