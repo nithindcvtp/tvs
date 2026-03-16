@@ -128,7 +128,54 @@ onHour.add(new Option(h,h));
 offHour.add(new Option(h,h));
 
 }
+function addSchedule(){
 
+const date = document.getElementById("schedDate").value;
+
+const onHour = document.getElementById("schedOnHour").value;
+const onMin = document.getElementById("schedOnMin").value;
+const onAMPM = document.getElementById("schedOnAMPM").value;
+
+const offHour = document.getElementById("schedOffHour").value;
+const offMin = document.getElementById("schedOffMin").value;
+const offAMPM = document.getElementById("schedOffAMPM").value;
+
+
+if(!date){
+
+alert("Please select a date");
+
+return;
+
+}
+
+
+// convert 12h → 24h
+function convertTo24(h,m,ampm){
+
+h = parseInt(h);
+
+if(ampm === "PM" && h < 12) h += 12;
+if(ampm === "AM" && h === 12) h = 0;
+
+h = String(h).padStart(2,'0');
+
+return h + ":" + m;
+
+}
+
+const onTime = convertTo24(onHour,onMin,onAMPM);
+const offTime = convertTo24(offHour,offMin,offAMPM);
+
+
+alert(
+"Schedule Added\n\n" +
+"Date: " + date + "\n" +
+"ON: " + onTime + "\n" +
+"OFF: " + offTime
+);
+
+}
 
 // MINUTES (00–59)
 for(let i=0;i<60;i++){
