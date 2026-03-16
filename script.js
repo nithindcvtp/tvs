@@ -1,53 +1,51 @@
 const WRITE_KEY = "G4PC4DHVDQGE876Y";
+const READ_KEY  = "UNH00NSYZ84WVY1E";
 const CHANNEL_ID = "3302262";
 
 let lastState = "UNKNOWN";
 
+
 // TURN RELAY ON
-function updateStatus(){
+function relayOn(){
 
-fetch("https://api.thingspeak.com/channels/3302262/fields/1/last.txt?api_key=UNH00NSYZ84WVY1E")
+fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=ON`)
 .then(response => response.text())
-.then(state => {
+.then(data => {
 
-state = state.trim().toUpperCase();
+console.log("Write response:", data);
 
-const el = document.getElementById("relayStatus");
-
-if(state.includes("ON")){
-
-el.textContent = "Relay is now ON";
-el.className = "status on";
-
-}
-else if(state.includes("OFF")){
-
-el.textContent = "Relay is now OFF";
-el.className = "status off";
-
-}
-else{
-
-el.textContent = "Relay status unknown";
-
-}
-
-})
-.catch(error => {
-
-console.log("Status fetch error:", error);
+// wait before checking status
+setTimeout(updateStatus,2000);
 
 });
 
 }
+
+
+// TURN RELAY OFF
+function relayOff(){
+
+fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=OFF`)
+.then(response => response.text())
+.then(data => {
+
+console.log("Write response:", data);
+
+setTimeout(updateStatus,2000);
+
+});
+
+}
+
+
 // READ STATUS FROM THINGSPEAK
 function updateStatus(){
 
-fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.txt`)
+fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.txt?api_key=${READ_KEY}`)
 .then(response => response.text())
 .then(state => {
 
-state = state.trim();
+state = state.trim().toUpperCase();
 
 if(state === "ON" || state === "OFF"){
 lastState = state;
@@ -68,8 +66,12 @@ console.log("Status error:", err);
 
 }
 
-// AUTO UPDATE
+
+// AUTO UPDATE STATUS EVERY 5 SECONDS
 setInterval(updateStatus,5000);
 
-// INITIAL LOAD
-window.onload = updateStatus;
+
+// LOAD STATUS WHEN PAGE OPENS
+window.onload = function(){
+updateStatus();
+};
