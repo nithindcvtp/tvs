@@ -31,3 +31,7 @@ el.className = "status " + state.toLowerCase();
 })
 
 }
+// AUTO UPDATE STATUS
+setInterval(updateStatus,5000)
+
+window.onload = updateStatus
