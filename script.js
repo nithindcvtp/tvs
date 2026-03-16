@@ -103,4 +103,9 @@ setInterval(updateStatus,5000);
 
 
 // INITIAL PAGE LOAD
-window.onload = updateStatus;
+window.onload = function(){
+
+populateTimeSelectors();
+updateStatus();
+
+};
