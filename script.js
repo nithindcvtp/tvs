@@ -98,8 +98,11 @@ el.textContent = "Relay status unknown";
 }
 
 
-// AUTO UPDATE EVERY 5 SECONDS
+// AUTO UPDATE STATUS
 setInterval(updateStatus,5000);
+
+
+// CREATE TIME SELECTORS
 function populateTimeSelectors(){
 
 const onHour = document.getElementById("schedOnHour");
@@ -109,13 +112,20 @@ const offHour = document.getElementById("schedOffHour");
 const offMin = document.getElementById("schedOffMin");
 
 
+// clear existing options
+onHour.innerHTML = "";
+onMin.innerHTML = "";
+offHour.innerHTML = "";
+offMin.innerHTML = "";
+
+
 // HOURS (01–12)
 for(let i=1;i<=12;i++){
 
 let h = String(i).padStart(2,"0");
 
-onHour.innerHTML += `<option value="${h}">${h}</option>`;
-offHour.innerHTML += `<option value="${h}">${h}</option>`;
+onHour.add(new Option(h,h));
+offHour.add(new Option(h,h));
 
 }
 
@@ -125,12 +135,13 @@ for(let i=0;i<60;i++){
 
 let m = String(i).padStart(2,"0");
 
-onMin.innerHTML += `<option value="${m}">${m}</option>`;
-offMin.innerHTML += `<option value="${m}">${m}</option>`;
+onMin.add(new Option(m,m));
+offMin.add(new Option(m,m));
 
 }
 
 }
+
 
 // INITIAL PAGE LOAD
 window.onload = function(){
