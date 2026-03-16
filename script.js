@@ -128,6 +128,22 @@ onHour.add(new Option(h,h));
 offHour.add(new Option(h,h));
 
 }
+
+
+// MINUTES (00–59)
+for(let i=0;i<60;i++){
+
+let m = String(i).padStart(2,"0");
+
+onMin.add(new Option(m,m));
+offMin.add(new Option(m,m));
+
+}
+
+}
+
+
+// ADD SCHEDULE FUNCTION
 function addSchedule(){
 
 const date = document.getElementById("schedDate").value;
@@ -144,7 +160,6 @@ const offAMPM = document.getElementById("schedOffAMPM").value;
 if(!date){
 
 alert("Please select a date");
-
 return;
 
 }
@@ -174,18 +189,6 @@ alert(
 "ON: " + onTime + "\n" +
 "OFF: " + offTime
 );
-
-}
-
-// MINUTES (00–59)
-for(let i=0;i<60;i++){
-
-let m = String(i).padStart(2,"0");
-
-onMin.add(new Option(m,m));
-offMin.add(new Option(m,m));
-
-}
 
 }
 
