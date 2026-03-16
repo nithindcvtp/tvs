@@ -8,13 +8,15 @@ fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=ON`)
 .then(response => response.text())
 .then(data => {
 
-console.log("Command sent: ON, Entry:", data);
+console.log("Command sent: ON, entry:", data);
 
-updateStatus();
+// wait a bit before reading status
+setTimeout(updateStatus,2000);
 
 });
 
 }
+
 
 // TURN RELAY OFF
 function relayOff(){
@@ -23,23 +25,23 @@ fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=OFF`)
 .then(response => response.text())
 .then(data => {
 
-console.log("Command sent: OFF, Entry:", data);
+console.log("Command sent: OFF, entry:", data);
 
-updateStatus();
+setTimeout(updateStatus,2000);
 
 });
 
 }
 
 
-// UPDATE RELAY STATUS FROM THINGSPEAK
+// READ CURRENT STATE
 function updateStatus(){
 
 fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.txt`)
 .then(response => response.text())
 .then(state => {
 
-state = state.trim();   // remove newline characters
+state = state.trim();
 
 const el = document.getElementById("relayStatus");
 
@@ -65,20 +67,20 @@ el.className = "status";
 }
 
 })
-.catch(err => {
+.catch(error => {
 
-console.log("Status fetch error:", err);
+console.log("Status error:", error);
 
 });
 
 }
 
 
-// AUTO UPDATE STATUS EVERY 5 SECONDS
+// AUTO REFRESH EVERY 5 SEC
 setInterval(updateStatus,5000);
 
 
-// RUN ON PAGE LOAD
+// LOAD STATUS WHEN PAGE OPENS
 window.onload = function(){
 
 updateStatus();
