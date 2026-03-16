@@ -9,12 +9,11 @@ let lastState = "UNKNOWN";
 function relayOn(){
 
 fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=ON`)
-.then(response => response.text())
+.then(r => r.text())
 .then(data => {
 
 console.log("Write response:", data);
 
-// wait before checking status
 setTimeout(updateStatus,2000);
 
 });
@@ -26,7 +25,7 @@ setTimeout(updateStatus,2000);
 function relayOff(){
 
 fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=OFF`)
-.then(response => response.text())
+.then(r => r.text())
 .then(data => {
 
 console.log("Write response:", data);
@@ -41,11 +40,16 @@ setTimeout(updateStatus,2000);
 // READ STATUS FROM THINGSPEAK
 function updateStatus(){
 
-fetch(`https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.txt?api_key=${READ_KEY}`)
-.then(response => response.text())
+// prevent browser caching
+const url = `https://api.thingspeak.com/channels/${CHANNEL_ID}/fields/1/last.txt?api_key=${READ_KEY}&t=${Date.now()}`;
+
+fetch(url)
+.then(r => r.text())
 .then(state => {
 
 state = state.trim().toUpperCase();
+
+console.log("ThingSpeak returned:", state);
 
 if(state === "ON" || state === "OFF"){
 lastState = state;
@@ -67,11 +71,9 @@ console.log("Status error:", err);
 }
 
 
-// AUTO UPDATE STATUS EVERY 5 SECONDS
+// AUTO UPDATE EVERY 5 SEC
 setInterval(updateStatus,5000);
 
 
-// LOAD STATUS WHEN PAGE OPENS
-window.onload = function(){
-updateStatus();
-};
+// INITIAL PAGE LOAD
+window.onload = updateStatus;
