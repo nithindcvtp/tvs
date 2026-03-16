@@ -4,36 +4,37 @@ const CHANNEL_ID = "3302262";
 let lastState = "UNKNOWN";
 
 // TURN RELAY ON
-function relayOn(){
+function updateStatus(){
 
-fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=ON`)
+fetch("https://api.thingspeak.com/channels/3302262/fields/1/last.txt?api_key=UNH00NSYZ84WVY1E")
 .then(response => response.text())
-.then(data => {
+.then(state => {
 
-console.log("Write response:", data);
+state = state.trim();
 
-// wait before checking status
-setTimeout(updateStatus,3000);
+const el = document.getElementById("relayStatus");
+
+if(state === "ON"){
+
+el.textContent = "Relay is now ON";
+el.className = "status on";
+
+}
+else if(state === "OFF"){
+
+el.textContent = "Relay is now OFF";
+el.className = "status off";
+
+}
+else{
+
+el.textContent = "Relay status unknown";
+
+}
 
 });
 
 }
-
-// TURN RELAY OFF
-function relayOff(){
-
-fetch(`https://api.thingspeak.com/update?api_key=${WRITE_KEY}&field1=OFF`)
-.then(response => response.text())
-.then(data => {
-
-console.log("Write response:", data);
-
-setTimeout(updateStatus,3000);
-
-});
-
-}
-
 // READ STATUS FROM THINGSPEAK
 function updateStatus(){
 
