@@ -2,7 +2,6 @@
 <html>
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
 <title>Canteen Mobile Billing</title>
 
 <style>
@@ -22,7 +21,6 @@ body {
 
 h2 {
     text-align: center;
-    font-size: 22px;
 }
 
 select, input, button {
@@ -39,10 +37,6 @@ button {
     border: none;
 }
 
-button:hover {
-    background: #218838;
-}
-
 table {
     width: 100%;
     border-collapse: collapse;
@@ -56,23 +50,17 @@ th, td {
     text-align: center;
 }
 
-th {
-    background: #eee;
-}
-
 .total {
     font-size: 22px;
     font-weight: bold;
     text-align: right;
-    margin-top: 10px;
 }
 
 .removeBtn {
     background: red;
     color: white;
-    padding: 5px;
     border: none;
-    border-radius: 5px;
+    padding: 5px;
 }
 
 .printBtn {
@@ -81,7 +69,6 @@ th {
 }
 
 </style>
-
 </head>
 
 <body>
@@ -94,75 +81,69 @@ th {
 
 <option value="">Select Item</option>
 
-<option data-price="9">Tea(with milk) (₹9)</option>
-<option data-price="12">Coffee(with milk) (₹12)</option>
-<option data-price="6">Black Tea (₹6)</option>
-<option data-price="9">Black Coffee (₹9)</option>
-<option data-price="12">Milk (₹12)</option>
-<option data-price="9">Parippuvada (₹9)</option>
-<option data-price="9">Uzhunnuvada (₹9)</option>
-<option data-price="9">Bonda (₹9)</option>
-<option data-price="15">Pups-veg (₹15)</option>
-<option data-price="10">Banana Fry (₹10)</option>
-<option data-price="35">Thattu dosa SET (₹35)</option>
-<option data-price="30">Plain dosa (₹30)</option>
-<option data-price="35">Ghee roast (₹35)</option>
-<option data-price="40">Masala dosa (₹40)</option>
-<option data-price="25">Idly set (₹25)</option>
-<option data-price="8">Chapati (₹8)</option>
-<option data-price="9">Porotta (₹9)</option>
-<option data-price="9">Poori (₹9)</option>
-<option data-price="15">Upma (₹15)</option>
-<option data-price="13">Kozhukkata (₹13)</option>
-<option data-price="20">Bread sandwich veg (₹20)</option>
-<option data-price="13">Bread toast (₹13)</option>
-<option data-price="12">Steamed banana (₹12)</option>
-<option data-price="8">Nool puttu (₹8)</option>
-<option data-price="8">Puttu (₹8)</option>
-<option data-price="8">Appam/idiyappam (₹8)</option>
-<option data-price="30">Veg stew (₹30)</option>
-<option data-price="25">Kadala curry (₹25)</option>
-<option data-price="25">Cherupayar curry (₹25)</option>
-<option data-price="20">Baji (₹20)</option>
-<option data-price="25">Mix veg kuruma (₹25)</option>
-<option data-price="20">Tomato curry (₹20)</option>
-<option data-price="25">Veg kuruma (₹25)</option>
-<option data-price="9">Pathiri (₹9)</option>
-<option data-price="40">Meals fish curry (₹40)</option>
-<option data-price="40">Meals veg (₹40)</option>
-
-<option data-price="60">Biriyani veg (₹60)</option>
-<option data-price="12">Egg baji (₹12)</option>
-<option data-price="15">Cutlet chicken (₹15)</option>
-<option data-price="25">Egg masala (₹25)</option>
-<option data-price="55">Egg biriyani (₹55)</option>
-<option data-price="25">Egg curry (₹25)</option>
-<option data-price="15">Elanchi (₹15)</option>
-<option data-price="9">Ullivada (₹9)</option>
 <option data-price="13">Ada (₹13)</option>
-<option data-price="35">Uttapam (₹35)</option>
-<option data-price="10">Neyyappam (₹10)</option>
-<option data-price="9">Kayappam (₹9)</option>
-<option data-price="9">Sugeen (₹9)</option>
-<option data-price="12">Kesari (₹12)</option>
-<option data-price="9">Mulagu baji (₹9)</option>
-<option data-price="9">Pazampori (₹9)</option>
-<option data-price="20">Omelette double (₹20)</option>
-<option data-price="18">Puff egg (₹18)</option>
-<option data-price="50">Sandwich chicken (₹50)</option>
-<option data-price="130">Chicken biriyani (₹130)</option>
-<option data-price="90">Chicken biriyani half (₹90)</option>
-<option data-price="130">Beef biriyani full (₹130)</option>
+<option data-price="8">Appam/idiyappam (₹8)</option>
+<option data-price="10">Banana Fry (₹10)</option>
+<option data-price="50">Beef biriyani full (₹130)</option>
 <option data-price="100">Beef biriyani half (₹100)</option>
-<option data-price="50">Ghee rice full (₹50)</option>
-<option data-price="70">Biriyani rice full (₹70)</option>
-<option data-price="125">Chicken fried rice (₹125)</option>
-<option data-price="80">Veg fried rice (₹80)</option>
-<option data-price="60">Chicken curry 2 pcs (₹60)</option>
-<option data-price="40">Fish curry (₹40)</option>
 <option data-price="50">Beef curry (₹50)</option>
 <option data-price="60">Beef fry (₹60)</option>
+<option data-price="6">Black Tea (₹6)</option>
+<option data-price="9">Black Coffee (₹9)</option>
+<option data-price="9">Bonda (₹9)</option>
+<option data-price="20">Bread sandwich veg (₹20)</option>
+<option data-price="13">Bread toast (₹13)</option>
+<option data-price="60">Biriyani veg (₹60)</option>
+<option data-price="70">Biriyani rice full (₹70)</option>
+<option data-price="20">Baji (₹20)</option>
+<option data-price="12">Coffee(with milk) (₹12)</option>
+<option data-price="15">Cutlet chicken (₹15)</option>
+<option data-price="25">Cherupayar curry (₹25)</option>
+<option data-price="130">Chicken biriyani (₹130)</option>
+<option data-price="90">Chicken biriyani half (₹90)</option>
+<option data-price="60">Chicken curry 2 pcs (₹60)</option>
+<option data-price="125">Chicken fried rice (₹125)</option>
+<option data-price="12">Egg baji (₹12)</option>
+<option data-price="55">Egg biriyani (₹55)</option>
+<option data-price="25">Egg curry (₹25)</option>
+<option data-price="25">Egg masala (₹25)</option>
+<option data-price="15">Elanchi (₹15)</option>
+<option data-price="40">Fish curry (₹40)</option>
+<option data-price="35">Ghee roast (₹35)</option>
+<option data-price="50">Ghee rice full (₹50)</option>
+<option data-price="25">Idly set (₹25)</option>
+<option data-price="25">Kadala curry (₹25)</option>
+<option data-price="9">Kayappam (₹9)</option>
+<option data-price="12">Kesari (₹12)</option>
+<option data-price="13">Kozhukkata (₹13)</option>
+<option data-price="40">Masala dosa (₹40)</option>
+<option data-price="40">Meals fish curry (₹40)</option>
+<option data-price="40">Meals veg (₹40)</option>
+<option data-price="12">Milk (₹12)</option>
+<option data-price="25">Mix veg kuruma (₹25)</option>
+<option data-price="9">Mulagu baji (₹9)</option>
+<option data-price="10">Neyyappam (₹10)</option>
+<option data-price="8">Nool puttu (₹8)</option>
+<option data-price="20">Omelette double (₹20)</option>
+<option data-price="9">Parippuvada (₹9)</option>
+<option data-price="9">Pathiri (₹9)</option>
+<option data-price="9">Pazampori (₹9)</option>
 <option data-price="20">Pazam nirachathu (₹20)</option>
+<option data-price="15">Pups-veg (₹15)</option>
+<option data-price="8">Puttu (₹8)</option>
+<option data-price="9">Porotta (₹9)</option>
+<option data-price="9">Poori (₹9)</option>
+<option data-price="35">Thattu dosa SET (₹35)</option>
+<option data-price="30">Plain dosa (₹30)</option>
+<option data-price="30">Veg stew (₹30)</option>
+<option data-price="25">Veg kuruma (₹25)</option>
+<option data-price="80">Veg fried rice (₹80)</option>
+<option data-price="9">Ullivada (₹9)</option>
+<option data-price="35">Uttapam (₹35)</option>
+<option data-price="15">Upma (₹15)</option>
+<option data-price="9">Uzhunnuvada (₹9)</option>
+<option data-price="9">Tea(with milk) (₹9)</option>
+<option data-price="12">Steamed banana (₹12)</option>
 
 </select>
 
@@ -219,20 +200,18 @@ row.insertCell(2).innerHTML = qty;
 row.insertCell(3).innerHTML = total;
 
 let btn = document.createElement("button");
-
 btn.innerHTML = "X";
 btn.className = "removeBtn";
 
 btn.onclick = function () {
-    grandTotal -= total;
-    document.getElementById("grandTotal").innerText = grandTotal;
-    table.deleteRow(row.rowIndex);
+grandTotal -= total;
+document.getElementById("grandTotal").innerText = grandTotal;
+table.deleteRow(row.rowIndex);
 };
 
 row.insertCell(4).appendChild(btn);
 
 grandTotal += total;
-
 document.getElementById("grandTotal").innerText = grandTotal;
 
 document.getElementById("qty").value = "";
@@ -240,7 +219,7 @@ document.getElementById("qty").value = "";
 }
 
 function printBill() {
-    window.print();
+window.print();
 }
 
 </script>
