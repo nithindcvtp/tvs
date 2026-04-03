@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Canteen Billing System</title>
+
+<style>
+
+body {
+    font-family: Arial;
+    background: #f5f5f5;
+}
+
+.container {
+    width: 850px;
+    margin: auto;
+    background: white;
+    padding: 20px;
+    border-radius: 10px;
+}
+
+h2 {
+    text-align: center;
+}
+
+select, input, button {
+    padding: 8px;
+    margin: 5px;
+    font-size: 16px;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 15px;
+}
+
+th, td {
+    border: 1px solid #ccc;
+    padding: 8px;
+    text-align: center;
+}
+
+th {
+    background: #eee;
+}
+
+.total {
+    font-size: 20px;
+    font-weight: bold;
+    text-align: right;
+    margin-top: 10px;
+}
+
+button {
+    cursor: pointer;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Canteen Billing</h2>
+
+<select id="product">
+<option value="">Select Item</option>
+
+<option data-price="9">Tea(with milk)</option>
+<option data-price="12">Coffee(with milk)</option>
+<option data-price="6">Black Tea</option>
+<option data-price="9">Black Coffee</option>
+<option data-price="12">Milk</option>
+<option data-price="9">Parippuvada</option>
+<option data-price="9">Uzhunnuvada</option>
+<option data-price="9">Bonda</option>
+<option data-price="15">Pups-veg</option>
+<option data-price="10">Banana Fry</option>
+<option data-price="35">Thattu dosa SET (3 nos)</option>
+<option data-price="30">Plain dosa</option>
+<option data-price="35">Ghee roast</option>
+<option data-price="40">Masala dosa</option>
+<option data-price="25">Idly set</option>
+<option data-price="8">Chapati</option>
+<option data-price="9">Parata (Porotta)</option>
+<option data-price="9">Poori</option>
+<option data-price="15">Upma</option>
+<option data-price="13">Kozhukkata</option>
+<option data-price="20">Bread sandwich (veg)</option>
+<option data-price="13">Bread toast</option>
+<option data-price="12">Steamed banana</option>
+<option data-price="8">Nool puttu</option>
+<option data-price="8">Puttu</option>
+<option data-price="8">Appam/idiyappam</option>
+<option data-price="30">Veg stew</option>
+<option data-price="25">Kadala curry</option>
+<option data-price="25">Cherupayar curry</option>
+<option data-price="20">Baji</option>
+<option data-price="25">Mix veg kuruma</option>
+<option data-price="20">Tomato curry</option>
+<option data-price="25">Veg kuruma</option>
+<option data-price="9">Pathiri</option>
+<option data-price="40">Meals-fish curry</option>
+<option data-price="40">Meals-veg</option>
+<option data-price="25">Kanji combo</option>
+
+<option data-price="60">Biriyani (veg)</option>
+<option data-price="12">Egg baji</option>
+<option data-price="15">Cutlet chicken</option>
+<option data-price="25">Egg masala</option>
+<option data-price="55">Egg biriyani</option>
+<option data-price="25">Egg curry</option>
+<option data-price="15">Elanchi</option>
+<option data-price="9">Ullivada</option>
+<option data-price="13">Ada</option>
+<option data-price="35">Uttapam</option>
+<option data-price="10">Neyyappam</option>
+<option data-price="9">Kayappam</option>
+<option data-price="9">Sugeen</option>
+<option data-price="12">Kesari</option>
+<option data-price="9">Parippuvada</option>
+<option data-price="9">Mulagu baji</option>
+<option data-price="9">Pazampori</option>
+<option data-price="20">Omelette (double)</option>
+<option data-price="18">Puff egg</option>
+<option data-price="50">Sandwich chicken</option>
+<option data-price="130">Chicken biriyani</option>
+<option data-price="90">Chicken biriyani half</option>
+<option data-price="130">Beef biriyani full</option>
+<option data-price="100">Beef biriyani half</option>
+<option data-price="50">Ghee rice full</option>
+<option data-price="70">Biriyani rice full</option>
+<option data-price="125">Chicken fried rice</option>
+<option data-price="80">Veg fried rice</option>
+<option data-price="55">Egg biriyani</option>
+<option data-price="60">Chicken curry 2 pcs</option>
+<option data-price="40">Fish curry</option>
+<option data-price="50">Beef curry</option>
+<option data-price="60">Beef fry</option>
+<option data-price="20">Pazam nirachathu</option>
+
+</select>
+
+<input type="number" id="qty" placeholder="Quantity" min="1">
+
+<button onclick="addItem()">Add</button>
+
+<table id="billTable">
+<tr>
+<th>Item</th>
+<th>Price</th>
+<th>Qty</th>
+<th>Total</th>
+<th>Remove</th>
+</tr>
+</table>
+
+<div class="total">
+Total Amount: ₹ <span id="grandTotal">0</span>
+</div>
+
+<button onclick="printBill()">Print Bill</button>
+
+</div>
+
+<script>
+
+let grandTotal = 0;
+
+function addItem() {
+
+let product = document.getElementById("product");
+let qty = document.getElementById("qty").value;
+
+if (product.selectedIndex === 0 || qty === "") {
+    alert("Select item and quantity");
+    return;
+}
+
+let itemName = product.options[product.selectedIndex].text;
+let price = product.options[product.selectedIndex].dataset.price;
+
+let total = price * qty;
+
+let table = document.getElementById("billTable");
+
+let row = table.insertRow();
+
+row.insertCell(0).innerHTML = itemName;
+row.insertCell(1).innerHTML = price;
+row.insertCell(2).innerHTML = qty;
+row.insertCell(3).innerHTML = total;
+
+let removeBtn = document.createElement("button");
+removeBtn.innerHTML = "X";
+
+removeBtn.onclick = function () {
+    grandTotal -= total;
+    document.getElementById("grandTotal").innerText = grandTotal;
+    table.deleteRow(row.rowIndex);
+};
+
+row.insertCell(4).appendChild(removeBtn);
+
+grandTotal += total;
+
+document.getElementById("grandTotal").innerText = grandTotal;
+
+document.getElementById("qty").value = "";
+
+}
+
+function printBill() {
+    window.print();
+}
+
+</script>
+
+</body>
+</html>
