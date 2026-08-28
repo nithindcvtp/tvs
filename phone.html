@@ -399,6 +399,17 @@
     </div>
     <div class="overlay-body">
       <div class="settings-group">
+        <h3>Google Sheet connection</h3>
+        <div class="field">
+          <label>Apps Script Web App URL</label>
+          <input type="text" id="sheetUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
+        </div>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
+          <span id="sheetUrlStatus" style="font-size:12px; color:var(--muted);"></span>
+          <button id="saveSheetUrlBtn">Save &amp; Reconnect</button>
+        </div>
+      </div>
+      <div class="settings-group">
         <h3>Category options</h3>
         <div class="option-list" id="categoryOptionList"></div>
         <div class="add-row">
@@ -416,7 +427,7 @@
       </div>
       <div class="settings-group">
         <p class="config-note">
-          This site is wired to one Google Sheet via its Apps Script Web App URL, set in the WEB_APP_URL constant near the top of this file's &lt;script&gt;. Edit that constant directly if you ever need to point it at a different Sheet.
+          The Sheet URL above is saved in this browser, so it only affects visits from this device. Changing it here does not edit the file itself — if you want every visitor's default to change, also update the WEB_APP_URL constant near the top of this file's &lt;script&gt;.
         </p>
       </div>
     </div>
@@ -427,10 +438,35 @@
 <script>
 /* ============================================================
    CONFIGURATION
-   Same Apps Script Web App URL used by the Python desktop app.
-   Edit this if you ever redeploy to a new URL.
+   DEFAULT_WEB_APP_URL is baked in so the site works immediately for
+   any visitor with no setup. Settings lets a user override this in
+   their own browser (saved via localStorage on real deployments —
+   e.g. once this is hosted on GitHub Pages — though it won't persist
+   across reloads while previewing the file inside Claude's chat
+   sandbox, which blocks that storage API).
    ============================================================ */
-const WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzCzyQJ3oOi6HPcBbTR69tTUsUkCW0GKfhbgmU7qHxu8L7loLQWqY27BYxR7eXDDApI/exec";
+const DEFAULT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzCzyQJ3oOi6HPcBbTR69tTUsUkCW0GKfhbgmU7qHxu8L7loLQWqY27BYxR7eXDDApI/exec";
+const URL_STORAGE_KEY = "contactManagerWebAppUrl";
+
+function loadWebAppUrl() {
+  try {
+    const saved = window.localStorage.getItem(URL_STORAGE_KEY);
+    return saved && saved.trim() ? saved.trim() : DEFAULT_WEB_APP_URL;
+  } catch (e) {
+    return DEFAULT_WEB_APP_URL; // storage blocked (private mode, sandboxed preview, etc.)
+  }
+}
+
+function saveWebAppUrl(url) {
+  try {
+    window.localStorage.setItem(URL_STORAGE_KEY, url);
+    return true;
+  } catch (e) {
+    return false; // couldn't persist — caller still gets an in-memory update this session
+  }
+}
+
+let WEB_APP_URL = loadWebAppUrl();
 
 const DEFAULT_CATEGORIES = ["Computer", "Electrical", "Family", "Work", "Personal", "Medical", "Other"];
 const DEFAULT_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -864,10 +900,35 @@ document.getElementById("searchInput").addEventListener("input", renderList);
 document.getElementById("addBtn").addEventListener("click", () => openForm(null));
 document.getElementById("settingsBtn").addEventListener("click", () => {
   renderSettingsLists();
+  document.getElementById("sheetUrlInput").value = WEB_APP_URL;
+  document.getElementById("sheetUrlStatus").textContent = "";
   document.getElementById("settingsOverlay").classList.add("open");
 });
 document.getElementById("settingsCloseBtn").addEventListener("click", () => {
   document.getElementById("settingsOverlay").classList.remove("open");
+});
+document.getElementById("saveSheetUrlBtn").addEventListener("click", () => {
+  const input = document.getElementById("sheetUrlInput");
+  const status = document.getElementById("sheetUrlStatus");
+  const newUrl = input.value.trim();
+
+  if (!newUrl) {
+    status.textContent = "Enter a URL first.";
+    status.style.color = "var(--danger)";
+    return;
+  }
+  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(newUrl)) {
+    status.textContent = "That doesn't look like a Web App URL (should end in /exec).";
+    status.style.color = "var(--danger)";
+    return;
+  }
+
+  WEB_APP_URL = newUrl;
+  const persisted = saveWebAppUrl(newUrl);
+  status.style.color = "var(--muted)";
+  status.textContent = persisted ? "Saved. Reconnecting…" : "Using this URL for now (couldn't save it in this browser).";
+
+  refreshFromSheet(true);
 });
 document.getElementById("detailCloseBtn").addEventListener("click", () => {
   document.getElementById("detailOverlay").classList.remove("open");
