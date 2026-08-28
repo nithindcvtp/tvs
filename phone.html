@@ -405,9 +405,13 @@
       </div>
 
       <div class="field-row">
-        <div class="field"><label>WhatsApp number</label><input type="tel" id="fWhatsApp" placeholder="e.g. +919876543210"></div>
+        <div class="field">
+          <label>WhatsApp number</label>
+          <input type="tel" id="fWhatsApp" placeholder="e.g. +919876543210">
+        </div>
         <div class="field"><label>Telegram username</label><input type="text" id="fTelegram" placeholder="e.g. username (no @)"></div>
       </div>
+      <div class="hint">Leave WhatsApp blank to use the phone number above automatically.</div>
 
       <div class="field">
         <label>Location</label>
@@ -523,6 +527,18 @@ let pendingOps = 0;
 function asText(value) {
   if (value === null || value === undefined) return "";
   return String(value);
+}
+
+// Strips everything but digits so "987 654 3210" and "987-654-3210"
+// are recognized as the same number when checking for duplicates.
+function normalizePhone(value) {
+  return asText(value).replace(/\D/g, "");
+}
+
+function findDuplicatePhoneContact(phone, excludeRow) {
+  const normalized = normalizePhone(phone);
+  if (!normalized) return null;
+  return contacts.find(c => c.row !== excludeRow && normalizePhone(c.Phone) === normalized) || null;
 }
 
 function toTitleCase(text) {
@@ -788,7 +804,9 @@ function openDetail(c) {
     const phoneText = asText(c.Phone);
     const emailText = asText(c.Email);
     const addressText = asText(c.Address);
-    const whatsappText = asText(c.WhatsApp).replace(/[^\d+]/g, "");
+    const whatsappRaw = asText(c.WhatsApp).trim() || phoneText.trim();
+    const whatsappIsFallback = !asText(c.WhatsApp).trim() && !!phoneText.trim();
+    const whatsappText = whatsappRaw.replace(/[^\d+]/g, "");
     const telegramText = asText(c.Telegram).replace(/^@/, "").trim();
     const latText = asText(c.Latitude).trim();
     const lngText = asText(c.Longitude).trim();
@@ -815,7 +833,8 @@ function openDetail(c) {
     [
       ["Phone", phoneText], ["Email", emailText], ["Address", addressText], ["Notes", asText(c.Notes)],
       ["Category", asText(c.Category)], ["Blood Group", asText(c.BloodGroup)], ["Gender", asText(c.Gender)],
-      ["WhatsApp", asText(c.WhatsApp)], ["Telegram", asText(c.Telegram)],
+      ["WhatsApp", whatsappIsFallback ? `${whatsappRaw} (using phone number)` : asText(c.WhatsApp)],
+      ["Telegram", asText(c.Telegram)],
       ["Location", hasCoords ? `${latText}, ${lngText}` : ""],
       ["Date Added", asText(c.DateAdded)]
     ].forEach(([label, value]) => {
@@ -904,6 +923,13 @@ function readFormValues() {
 async function saveForm() {
   const values = readFormValues();
   if (!values.Name) { alert("Name is required."); return; }
+
+  const duplicate = findDuplicatePhoneContact(values.Phone, editingRow);
+  if (duplicate) {
+    alert(`This number is already saved under "${duplicate.Name || "another contact"}". You can't save the same number for a different contact.`);
+    return;
+  }
+
   closeForm();
 
   if (editingRow == null) {
