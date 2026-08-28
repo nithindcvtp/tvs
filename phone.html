@@ -239,11 +239,13 @@
 
   .action-row {
     display: flex;
+    flex-wrap: wrap;
     gap: 10px;
     margin-bottom: 20px;
   }
   .action-btn {
-    flex: 1;
+    flex: 1 1 27%;
+    min-width: 84px;
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: var(--radius);
@@ -284,6 +286,20 @@
     font-weight: 700;
     cursor: pointer;
   }
+
+  .secondary-btn {
+    width: 100%;
+    padding: 11px;
+    border-radius: 10px;
+    border: 1px solid var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 2px;
+  }
+  .secondary-btn:disabled { opacity: 0.6; }
 
   /* Form view */
   .field { margin-bottom: 14px; }
@@ -386,6 +402,21 @@
           <option value="Male">Male</option>
           <option value="Female">Female</option>
         </select>
+      </div>
+
+      <div class="field-row">
+        <div class="field"><label>WhatsApp number</label><input type="tel" id="fWhatsApp" placeholder="e.g. +919876543210"></div>
+        <div class="field"><label>Telegram username</label><input type="text" id="fTelegram" placeholder="e.g. username (no @)"></div>
+      </div>
+
+      <div class="field">
+        <label>Location</label>
+        <div class="field-row">
+          <div class="field"><input type="number" step="any" id="fLatitude" placeholder="Latitude"></div>
+          <div class="field"><input type="number" step="any" id="fLongitude" placeholder="Longitude"></div>
+        </div>
+        <button type="button" class="secondary-btn" id="useLocationBtn">📍 Use My Current Location</button>
+        <div class="hint" id="locationStatus" style="margin-top:0;"></div>
       </div>
     </div>
   </div>
@@ -665,7 +696,7 @@ function renderList() {
   let filtered = contacts.filter(c => {
     if (activeCategory !== "All" && (c.Category || "") !== activeCategory) return false;
     if (search) {
-      const haystack = [c.Name, c.Phone, c.Email, c.Address, c.Notes, c.Category, c.Gender].join(" ").toLowerCase();
+      const haystack = [c.Name, c.Phone, c.Email, c.Address, c.Notes, c.Category, c.Gender, c.WhatsApp, c.Telegram].join(" ").toLowerCase();
       if (!haystack.includes(search)) return false;
     }
     return true;
@@ -757,12 +788,26 @@ function openDetail(c) {
     const phoneText = asText(c.Phone);
     const emailText = asText(c.Email);
     const addressText = asText(c.Address);
+    const whatsappText = asText(c.WhatsApp).replace(/[^\d+]/g, "");
+    const telegramText = asText(c.Telegram).replace(/^@/, "").trim();
+    const latText = asText(c.Latitude).trim();
+    const lngText = asText(c.Longitude).trim();
+    const hasCoords = latText !== "" && lngText !== "" && !isNaN(parseFloat(latText)) && !isNaN(parseFloat(lngText));
+
+    let mapHref = null;
+    if (hasCoords) {
+      mapHref = `https://maps.apple.com/?ll=${encodeURIComponent(latText)},${encodeURIComponent(lngText)}&q=${encodeURIComponent(asText(c.Name) || "Location")}`;
+    } else if (addressText) {
+      mapHref = `https://maps.apple.com/?q=${encodeURIComponent(addressText)}`;
+    }
 
     const actions = document.createElement("div");
     actions.className = "action-row";
     actions.appendChild(actionLink("📞", "Call", phoneText ? `tel:${phoneText.replace(/\s+/g, "")}` : null));
     actions.appendChild(actionLink("✉️", "Email", emailText ? `mailto:${emailText}` : null));
-    actions.appendChild(actionLink("🗺️", "Map", addressText ? `https://maps.apple.com/?q=${encodeURIComponent(addressText)}` : null));
+    actions.appendChild(actionLink("🗺️", "Map", mapHref));
+    actions.appendChild(actionLink("💬", "WhatsApp", whatsappText ? `https://wa.me/${whatsappText.replace(/^\+/, "")}` : null));
+    actions.appendChild(actionLink("✈️", "Telegram", telegramText ? `https://t.me/${telegramText}` : null));
     body.appendChild(actions);
 
     const card = document.createElement("div");
@@ -770,6 +815,8 @@ function openDetail(c) {
     [
       ["Phone", phoneText], ["Email", emailText], ["Address", addressText], ["Notes", asText(c.Notes)],
       ["Category", asText(c.Category)], ["Blood Group", asText(c.BloodGroup)], ["Gender", asText(c.Gender)],
+      ["WhatsApp", asText(c.WhatsApp)], ["Telegram", asText(c.Telegram)],
+      ["Location", hasCoords ? `${latText}, ${lngText}` : ""],
       ["Date Added", asText(c.DateAdded)]
     ].forEach(([label, value]) => {
       const row = document.createElement("div");
@@ -824,6 +871,11 @@ function openForm(contact) {
   document.getElementById("fCategory").value = contact ? (contact.Category || "") : "";
   document.getElementById("fBloodGroup").value = contact ? (contact.BloodGroup || "") : "";
   document.getElementById("fGender").value = contact ? (contact.Gender || "") : "";
+  document.getElementById("fWhatsApp").value = contact ? (contact.WhatsApp || "") : "";
+  document.getElementById("fTelegram").value = contact ? (contact.Telegram || "") : "";
+  document.getElementById("fLatitude").value = contact ? (contact.Latitude || "") : "";
+  document.getElementById("fLongitude").value = contact ? (contact.Longitude || "") : "";
+  document.getElementById("locationStatus").textContent = "";
 
   document.getElementById("formOverlay").classList.add("open");
 }
@@ -841,7 +893,11 @@ function readFormValues() {
     Notes: document.getElementById("fNotes").value.trim(),
     Category: toTitleCase(document.getElementById("fCategory").value.trim()),
     BloodGroup: document.getElementById("fBloodGroup").value,
-    Gender: document.getElementById("fGender").value
+    Gender: document.getElementById("fGender").value,
+    WhatsApp: document.getElementById("fWhatsApp").value.trim(),
+    Telegram: document.getElementById("fTelegram").value.trim().replace(/^@/, ""),
+    Latitude: document.getElementById("fLatitude").value.trim(),
+    Longitude: document.getElementById("fLongitude").value.trim()
   };
 }
 
@@ -978,6 +1034,44 @@ document.getElementById("detailEditBtn").addEventListener("click", () => {
 });
 document.getElementById("formCancelBtn").addEventListener("click", closeForm);
 document.getElementById("formSaveBtn").addEventListener("click", saveForm);
+
+document.getElementById("useLocationBtn").addEventListener("click", () => {
+  const btn = document.getElementById("useLocationBtn");
+  const status = document.getElementById("locationStatus");
+
+  if (!("geolocation" in navigator)) {
+    status.textContent = "This browser doesn't support location access.";
+    status.style.color = "var(--danger)";
+    return;
+  }
+
+  btn.disabled = true;
+  status.style.color = "var(--muted)";
+  status.textContent = "Getting your current location…";
+
+  navigator.geolocation.getCurrentPosition(
+    (position) => {
+      document.getElementById("fLatitude").value = position.coords.latitude.toFixed(6);
+      document.getElementById("fLongitude").value = position.coords.longitude.toFixed(6);
+      status.style.color = "var(--muted)";
+      status.textContent = `Location captured (±${Math.round(position.coords.accuracy)}m accuracy).`;
+      btn.disabled = false;
+    },
+    (err) => {
+      // Common causes: user denied the permission prompt, or the site
+      // isn't served over HTTPS (GitHub Pages is, so this mainly
+      // matters if testing locally over plain http://).
+      let message = "Couldn't get your location.";
+      if (err.code === err.PERMISSION_DENIED) message = "Location access was denied. Check your browser/site permissions.";
+      else if (err.code === err.POSITION_UNAVAILABLE) message = "Location unavailable right now.";
+      else if (err.code === err.TIMEOUT) message = "Location request timed out. Try again.";
+      status.style.color = "var(--danger)";
+      status.textContent = message;
+      btn.disabled = false;
+    },
+    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+  );
+});
 
 document.getElementById("addCategoryBtn").addEventListener("click", () => {
   const input = document.getElementById("newCategoryInput");
