@@ -449,12 +449,23 @@ let pendingOps = 0;
 
 /* ---------------- Helpers ---------------- */
 
+// Google Sheets sometimes stores a plain-digit phone number as an actual
+// Number rather than text. Any raw value from the Sheet gets funneled
+// through this before we call string-only methods on it, so a stray
+// number/date/null can never silently throw and break the UI.
+function asText(value) {
+  if (value === null || value === undefined) return "";
+  return String(value);
+}
+
 function toTitleCase(text) {
+  text = asText(text);
   if (!text) return text;
   return text.trim().split(/\s+/).map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
 }
 
 function initials(name) {
+  name = asText(name);
   const parts = name.trim().split(/\s+/);
   const first = parts[0] ? parts[0][0] : "";
   const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
@@ -463,6 +474,7 @@ function initials(name) {
 
 const AVATAR_PALETTE = ["#2F5D62", "#7A5C3E", "#5C6B73", "#8C4A45", "#4E6B4F", "#5A4E7A", "#7A6A2F"];
 function avatarColor(name) {
+  name = asText(name);
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
@@ -644,49 +656,65 @@ function openDetail(c) {
   const body = document.getElementById("detailBody");
   body.innerHTML = "";
 
-  const header = document.createElement("div");
-  header.className = "detail-header";
-  const av = document.createElement("div");
-  av.className = "detail-avatar";
-  av.style.background = avatarColor(c.Name || "?");
-  av.textContent = initials(c.Name || "?");
-  const nm = document.createElement("div");
-  nm.className = "detail-name";
-  nm.textContent = c.Name || "(no name)";
-  const sub = document.createElement("div");
-  sub.className = "detail-sub";
-  sub.textContent = [c.Category, c.Gender].filter(Boolean).join(" · ");
-  header.appendChild(av); header.appendChild(nm); header.appendChild(sub);
-  body.appendChild(header);
+  try {
+    const header = document.createElement("div");
+    header.className = "detail-header";
+    const av = document.createElement("div");
+    av.className = "detail-avatar";
+    av.style.background = avatarColor(c.Name);
+    av.textContent = initials(c.Name);
+    const nm = document.createElement("div");
+    nm.className = "detail-name";
+    nm.textContent = asText(c.Name) || "(no name)";
+    const sub = document.createElement("div");
+    sub.className = "detail-sub";
+    sub.textContent = [asText(c.Category), asText(c.Gender)].filter(Boolean).join(" · ");
+    header.appendChild(av); header.appendChild(nm); header.appendChild(sub);
+    body.appendChild(header);
 
-  const actions = document.createElement("div");
-  actions.className = "action-row";
-  actions.appendChild(actionLink("📞", "Call", c.Phone ? `tel:${c.Phone.replace(/\s+/g, "")}` : null));
-  actions.appendChild(actionLink("✉️", "Email", c.Email ? `mailto:${c.Email}` : null));
-  actions.appendChild(actionLink("🗺️", "Map", c.Address ? `https://maps.apple.com/?q=${encodeURIComponent(c.Address)}` : null));
-  body.appendChild(actions);
+    const phoneText = asText(c.Phone);
+    const emailText = asText(c.Email);
+    const addressText = asText(c.Address);
 
-  const card = document.createElement("div");
-  card.className = "info-card";
-  [
-    ["Phone", c.Phone], ["Email", c.Email], ["Address", c.Address], ["Notes", c.Notes],
-    ["Category", c.Category], ["Blood Group", c.BloodGroup], ["Gender", c.Gender],
-    ["Date Added", c.DateAdded]
-  ].forEach(([label, value]) => {
-    const row = document.createElement("div");
-    row.className = "info-row";
-    const l = document.createElement("div"); l.className = "info-label"; l.textContent = label;
-    const v = document.createElement("div"); v.className = "info-value"; v.textContent = value || "";
-    row.appendChild(l); row.appendChild(v);
-    card.appendChild(row);
-  });
-  body.appendChild(card);
+    const actions = document.createElement("div");
+    actions.className = "action-row";
+    actions.appendChild(actionLink("📞", "Call", phoneText ? `tel:${phoneText.replace(/\s+/g, "")}` : null));
+    actions.appendChild(actionLink("✉️", "Email", emailText ? `mailto:${emailText}` : null));
+    actions.appendChild(actionLink("🗺️", "Map", addressText ? `https://maps.apple.com/?q=${encodeURIComponent(addressText)}` : null));
+    body.appendChild(actions);
 
-  const delBtn = document.createElement("button");
-  delBtn.className = "danger-btn";
-  delBtn.textContent = "Delete Contact";
-  delBtn.onclick = () => deleteContact(c);
-  body.appendChild(delBtn);
+    const card = document.createElement("div");
+    card.className = "info-card";
+    [
+      ["Phone", phoneText], ["Email", emailText], ["Address", addressText], ["Notes", asText(c.Notes)],
+      ["Category", asText(c.Category)], ["Blood Group", asText(c.BloodGroup)], ["Gender", asText(c.Gender)],
+      ["Date Added", asText(c.DateAdded)]
+    ].forEach(([label, value]) => {
+      const row = document.createElement("div");
+      row.className = "info-row";
+      const l = document.createElement("div"); l.className = "info-label"; l.textContent = label;
+      const v = document.createElement("div"); v.className = "info-value"; v.textContent = value;
+      row.appendChild(l); row.appendChild(v);
+      card.appendChild(row);
+    });
+    body.appendChild(card);
+
+    const delBtn = document.createElement("button");
+    delBtn.className = "danger-btn";
+    delBtn.textContent = "Delete Contact";
+    delBtn.onclick = () => deleteContact(c);
+    body.appendChild(delBtn);
+  } catch (err) {
+    // Belt-and-suspenders: if a field ever contains something unexpected,
+    // show it instead of leaving the sheet blank/stuck-closed, so this
+    // never happens invisibly again.
+    console.error("openDetail failed for", c, err);
+    body.innerHTML = "";
+    const msg = document.createElement("div");
+    msg.className = "empty-state";
+    msg.textContent = "This contact has a field that couldn't be displayed. Check the browser console for details, or try editing it.";
+    body.appendChild(msg);
+  }
 
   document.getElementById("detailOverlay").classList.add("open");
 }
