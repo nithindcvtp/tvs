@@ -473,10 +473,10 @@ const DEFAULT_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 
 // In-memory only (see note above about why this isn't in localStorage
 // inside Claude's own preview sandbox; once deployed to GitHub Pages,
-// this still resets on reload by design, so the list stays in sync
-// with whatever's actually been used in the Sheet plus your defaults).
-let customCategories = [];
-let customBloodGroups = [];
+// Loaded from the Sheet's "Options" tab (via doGet) so custom categories
+// and blood groups persist for good and are shared across every visitor.
+let sheetCategories = [];
+let sheetBloodGroups = [];
 
 let contacts = [];       // authoritative-ish local cache from the Sheet
 let selectedContact = null;
@@ -548,7 +548,10 @@ async function refreshFromSheet(showSyncing) {
     const result = await apiGet();
     if (result.status !== "ok") throw new Error(result.message || "Unknown error");
     contacts = result.contacts;
+    sheetCategories = result.categories || [];
+    sheetBloodGroups = result.bloodGroups || [];
     rebuildCategorySuggestions();
+    rebuildBloodGroupSelect();
     renderList();
     renderCategoryChips();
   } catch (err) {
@@ -562,11 +565,15 @@ async function refreshFromSheet(showSyncing) {
   }
 }
 
-/* ---------------- Category / blood group option lists ---------------- */
+/* ---------------- Category / blood group option lists ----------------
+   The Sheet's "Options" tab is the source of truth for anything added
+   via Settings, so it's the same for every visitor. Defaults plus
+   whatever's actually in use on a contact are folded in too, as a
+   defensive fallback in case the Options tab is behind. */
 
 function rebuildCategorySuggestions() {
-  const used = new Set(contacts.map(c => (c.Category || "").trim()).filter(Boolean));
-  const all = new Set([...DEFAULT_CATEGORIES, ...customCategories, ...used]);
+  const used = new Set(contacts.map(c => asText(c.Category).trim()).filter(Boolean));
+  const all = new Set([...DEFAULT_CATEGORIES, ...sheetCategories, ...used]);
   const datalist = document.getElementById("categoryOptions");
   datalist.innerHTML = "";
   [...all].sort().forEach(cat => {
@@ -578,7 +585,7 @@ function rebuildCategorySuggestions() {
 }
 
 function allBloodGroups() {
-  return [...new Set([...DEFAULT_BLOOD_GROUPS, ...customBloodGroups])];
+  return [...new Set([...DEFAULT_BLOOD_GROUPS, ...sheetBloodGroups])];
 }
 
 function rebuildBloodGroupSelect() {
@@ -591,6 +598,45 @@ function rebuildBloodGroupSelect() {
     select.appendChild(opt);
   });
   select.value = current;
+}
+
+async function addOption(type, rawValue) {
+  const value = type === "Category" ? toTitleCase(rawValue) : rawValue.trim().toUpperCase();
+  if (!value) return;
+  const currentList = type === "Category"
+    ? [...new Set([...DEFAULT_CATEGORIES, ...sheetCategories])]
+    : allBloodGroups();
+  if (currentList.includes(value)) {
+    alert(`'${value}' is already in the list.`);
+    return;
+  }
+  pendingOps++; setSync("syncing", "Saving option…");
+  try {
+    const result = await apiPost({ action: "addOption", optionType: type, value });
+    if (result.status !== "ok") throw new Error(result.message || "Unknown error");
+  } catch (err) {
+    alert("Could not save: " + err.message);
+  } finally {
+    await refreshFromSheet(false);
+    pendingOps = Math.max(0, pendingOps - 1);
+    setSync(pendingOps === 0 ? "synced" : "syncing", pendingOps === 0 ? `Synced · ${contacts.length}` : "Saving…");
+    renderSettingsLists();
+  }
+}
+
+async function removeOption(type, value) {
+  pendingOps++; setSync("syncing", "Removing option…");
+  try {
+    const result = await apiPost({ action: "removeOption", optionType: type, value });
+    if (result.status !== "ok") throw new Error(result.message || "Unknown error");
+  } catch (err) {
+    alert("Could not remove: " + err.message);
+  } finally {
+    await refreshFromSheet(false);
+    pendingOps = Math.max(0, pendingOps - 1);
+    setSync(pendingOps === 0 ? "synced" : "syncing", pendingOps === 0 ? `Synced · ${contacts.length}` : "Removing…");
+    renderSettingsLists();
+  }
 }
 
 /* ---------------- Category filter chips ---------------- */
@@ -861,21 +907,14 @@ async function deleteContact(c) {
 function renderSettingsLists() {
   const catList = document.getElementById("categoryOptionList");
   catList.innerHTML = "";
-  [...new Set([...DEFAULT_CATEGORIES, ...customCategories])].sort().forEach(cat => {
-    catList.appendChild(settingsRow(cat, () => {
-      customCategories = customCategories.filter(c => c !== cat);
-      rebuildCategorySuggestions();
-    }, DEFAULT_CATEGORIES.includes(cat)));
+  [...new Set([...DEFAULT_CATEGORIES, ...sheetCategories])].sort().forEach(cat => {
+    catList.appendChild(settingsRow(cat, () => removeOption("Category", cat), DEFAULT_CATEGORIES.includes(cat)));
   });
 
   const bloodList = document.getElementById("bloodOptionList");
   bloodList.innerHTML = "";
   allBloodGroups().sort().forEach(bg => {
-    bloodList.appendChild(settingsRow(bg, () => {
-      customBloodGroups = customBloodGroups.filter(b => b !== bg);
-      rebuildBloodGroupSelect();
-      renderSettingsLists();
-    }, DEFAULT_BLOOD_GROUPS.includes(bg)));
+    bloodList.appendChild(settingsRow(bg, () => removeOption("BloodGroup", bg), DEFAULT_BLOOD_GROUPS.includes(bg)));
   });
 }
 
@@ -942,20 +981,17 @@ document.getElementById("formSaveBtn").addEventListener("click", saveForm);
 
 document.getElementById("addCategoryBtn").addEventListener("click", () => {
   const input = document.getElementById("newCategoryInput");
-  const value = toTitleCase(input.value.trim());
+  const value = input.value.trim();
   if (!value) return;
-  if (!customCategories.includes(value) && !DEFAULT_CATEGORIES.includes(value)) customCategories.push(value);
   input.value = "";
-  rebuildCategorySuggestions();
+  addOption("Category", value);
 });
 document.getElementById("addBloodBtn").addEventListener("click", () => {
   const input = document.getElementById("newBloodInput");
-  const value = input.value.trim().toUpperCase();
+  const value = input.value.trim();
   if (!value) return;
-  if (!customBloodGroups.includes(value) && !DEFAULT_BLOOD_GROUPS.includes(value)) customBloodGroups.push(value);
   input.value = "";
-  rebuildBloodGroupSelect();
-  renderSettingsLists();
+  addOption("BloodGroup", value);
 });
 
 /* ---------------- Boot ---------------- */
