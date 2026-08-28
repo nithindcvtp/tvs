@@ -375,6 +375,19 @@
       <button class="text-btn" id="formSaveBtn">Save</button>
     </div>
     <div class="overlay-body">
+      <div class="field">
+        <label>Photo</label>
+        <div style="display:flex; align-items:center; gap:12px;">
+          <div id="photoPreviewWrap" style="width:64px; height:64px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; flex:0 0 auto;">
+            <img id="photoPreviewImg" style="width:100%; height:100%; object-fit:cover; display:none;">
+            <span id="photoPreviewInitials" style="color:white; font-weight:700; font-size:16px;"></span>
+          </div>
+          <div style="flex:1;">
+            <input type="file" accept="image/*" id="fPhotoInput" style="font-size:13px; width:100%;">
+            <button type="button" class="text-btn danger" id="removePhotoBtn" style="padding:4px 0 0; font-size:13px; display:none;">Remove photo</button>
+          </div>
+        </div>
+      </div>
       <div class="field"><label>Name</label><input type="text" id="fName" placeholder="Full name"></div>
       <div class="field-row">
         <div class="field"><label>Phone</label><input type="tel" id="fPhone" placeholder="Phone number"></div>
@@ -518,6 +531,15 @@ let selectedContact = null;
 let editingRow = null;   // row number currently being edited, or null when adding
 let pendingOps = 0;
 
+// Photo state for whichever contact is currently open in the form.
+// currentPhotoUrl: the already-saved Drive URL (if editing a contact that has one).
+// pendingPhotoBase64/pendingPhotoMimeType: a newly picked file, not yet uploaded.
+// photoRemoved: user explicitly cleared the photo.
+let currentPhotoUrl = "";
+let pendingPhotoBase64 = null;
+let pendingPhotoMimeType = null;
+let photoRemoved = false;
+
 /* ---------------- Helpers ---------------- */
 
 // Google Sheets sometimes stores a plain-digit phone number as an actual
@@ -561,6 +583,36 @@ function avatarColor(name) {
   let hash = 0;
   for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
   return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
+}
+
+/* ---------------- Photo preview / picking ---------------- */
+
+function updatePhotoPreview() {
+  const img = document.getElementById("photoPreviewImg");
+  const initialsEl = document.getElementById("photoPreviewInitials");
+  const wrap = document.getElementById("photoPreviewWrap");
+  const removeBtn = document.getElementById("removePhotoBtn");
+  const name = document.getElementById("fName").value || "?";
+
+  let src = null;
+  if (!photoRemoved) {
+    if (pendingPhotoBase64) src = `data:${pendingPhotoMimeType};base64,${pendingPhotoBase64}`;
+    else if (currentPhotoUrl) src = currentPhotoUrl;
+  }
+
+  if (src) {
+    img.src = src;
+    img.style.display = "block";
+    initialsEl.style.display = "none";
+    wrap.style.background = "transparent";
+    removeBtn.style.display = "inline-block";
+  } else {
+    img.style.display = "none";
+    initialsEl.style.display = "block";
+    initialsEl.textContent = initials(name);
+    wrap.style.background = avatarColor(name);
+    removeBtn.style.display = "none";
+  }
 }
 
 function setSync(state, text) {
@@ -753,8 +805,16 @@ function buildContactRow(c) {
 
   const avatar = document.createElement("div");
   avatar.className = "avatar";
-  avatar.style.background = avatarColor(c.Name || "?");
-  avatar.textContent = initials(c.Name || "?");
+  const rowPhoto = asText(c.PhotoUrl).trim();
+  if (rowPhoto) {
+    const img = document.createElement("img");
+    img.src = rowPhoto;
+    img.style.width = "100%"; img.style.height = "100%"; img.style.borderRadius = "50%"; img.style.objectFit = "cover";
+    avatar.appendChild(img);
+  } else {
+    avatar.style.background = avatarColor(c.Name || "?");
+    avatar.textContent = initials(c.Name || "?");
+  }
 
   const meta = document.createElement("div");
   meta.className = "contact-meta";
@@ -790,8 +850,16 @@ function openDetail(c) {
     header.className = "detail-header";
     const av = document.createElement("div");
     av.className = "detail-avatar";
-    av.style.background = avatarColor(c.Name);
-    av.textContent = initials(c.Name);
+    const detailPhoto = asText(c.PhotoUrl).trim();
+    if (detailPhoto) {
+      const img = document.createElement("img");
+      img.src = detailPhoto;
+      img.style.width = "100%"; img.style.height = "100%"; img.style.borderRadius = "50%"; img.style.objectFit = "cover";
+      av.appendChild(img);
+    } else {
+      av.style.background = avatarColor(c.Name);
+      av.textContent = initials(c.Name);
+    }
     const nm = document.createElement("div");
     nm.className = "detail-name";
     nm.textContent = asText(c.Name) || "(no name)";
@@ -896,6 +964,13 @@ function openForm(contact) {
   document.getElementById("fLongitude").value = contact ? (contact.Longitude || "") : "";
   document.getElementById("locationStatus").textContent = "";
 
+  currentPhotoUrl = contact ? asText(contact.PhotoUrl).trim() : "";
+  pendingPhotoBase64 = null;
+  pendingPhotoMimeType = null;
+  photoRemoved = false;
+  document.getElementById("fPhotoInput").value = "";
+  updatePhotoPreview();
+
   document.getElementById("formOverlay").classList.add("open");
 }
 
@@ -930,14 +1005,30 @@ async function saveForm() {
     return;
   }
 
+  // Resolve what the photo URL should end up being: keep the existing
+  // one, clear it, or (if a new file was picked) upload it below and
+  // fill this in with the freshly returned Drive URL.
+  let photoUrl = photoRemoved ? "" : currentPhotoUrl;
+  const needsUpload = !!pendingPhotoBase64;
+  const photoBase64ToUpload = pendingPhotoBase64;
+  const photoMimeToUpload = pendingPhotoMimeType;
+  const photoNameForUpload = values.Name.replace(/\s+/g, "_") + "_" + Date.now();
+
   closeForm();
 
   if (editingRow == null) {
     const tempRow = "pending-" + Math.random().toString(36).slice(2, 9);
-    contacts.push({ ...values, row: tempRow, DateAdded: "Syncing...", _pending: true });
+    contacts.push({ ...values, PhotoUrl: photoUrl, row: tempRow, DateAdded: "Syncing...", _pending: true });
     renderList(); renderCategoryChips(); rebuildCategorySuggestions();
-    pendingOps++; setSync("syncing", "Saving…");
+    pendingOps++; setSync("syncing", needsUpload ? "Uploading photo…" : "Saving…");
     try {
+      if (needsUpload) {
+        const uploadResult = await apiPost({ action: "uploadPhoto", imageBase64: photoBase64ToUpload, mimeType: photoMimeToUpload, filename: photoNameForUpload });
+        if (uploadResult.status !== "ok") throw new Error(uploadResult.message);
+        photoUrl = uploadResult.url;
+        setSync("syncing", "Saving…");
+      }
+      values.PhotoUrl = photoUrl;
       const result = await apiPost({ action: "add", data: values });
       if (result.status !== "ok") throw new Error(result.message);
     } catch (err) {
@@ -950,10 +1041,17 @@ async function saveForm() {
   } else {
     const row = editingRow;
     const idx = contacts.findIndex(c => c.row === row);
-    if (idx !== -1) contacts[idx] = { ...contacts[idx], ...values, DateAdded: "Syncing...", _pending: true };
+    if (idx !== -1) contacts[idx] = { ...contacts[idx], ...values, PhotoUrl: photoUrl, DateAdded: "Syncing...", _pending: true };
     renderList(); renderCategoryChips(); rebuildCategorySuggestions();
-    pendingOps++; setSync("syncing", "Saving…");
+    pendingOps++; setSync("syncing", needsUpload ? "Uploading photo…" : "Saving…");
     try {
+      if (needsUpload) {
+        const uploadResult = await apiPost({ action: "uploadPhoto", imageBase64: photoBase64ToUpload, mimeType: photoMimeToUpload, filename: photoNameForUpload });
+        if (uploadResult.status !== "ok") throw new Error(uploadResult.message);
+        photoUrl = uploadResult.url;
+        setSync("syncing", "Saving…");
+      }
+      values.PhotoUrl = photoUrl;
       const result = await apiPost({ action: "update", row, data: values });
       if (result.status !== "ok") throw new Error(result.message);
     } catch (err) {
@@ -1060,6 +1158,43 @@ document.getElementById("detailEditBtn").addEventListener("click", () => {
 });
 document.getElementById("formCancelBtn").addEventListener("click", closeForm);
 document.getElementById("formSaveBtn").addEventListener("click", saveForm);
+
+document.getElementById("fPhotoInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  if (!file.type.startsWith("image/")) {
+    alert("Please choose an image file.");
+    e.target.value = "";
+    return;
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    alert("Please choose an image under 5MB.");
+    e.target.value = "";
+    return;
+  }
+  const reader = new FileReader();
+  reader.onload = () => {
+    const result = reader.result; // "data:image/jpeg;base64,AAAA..."
+    const commaIdx = result.indexOf(",");
+    pendingPhotoMimeType = result.substring(5, result.indexOf(";"));
+    pendingPhotoBase64 = result.substring(commaIdx + 1);
+    photoRemoved = false;
+    updatePhotoPreview();
+  };
+  reader.readAsDataURL(file);
+});
+
+document.getElementById("removePhotoBtn").addEventListener("click", () => {
+  photoRemoved = true;
+  pendingPhotoBase64 = null;
+  pendingPhotoMimeType = null;
+  document.getElementById("fPhotoInput").value = "";
+  updatePhotoPreview();
+});
+
+document.getElementById("fName").addEventListener("input", () => {
+  if (!pendingPhotoBase64 && (photoRemoved || !currentPhotoUrl)) updatePhotoPreview();
+});
 
 document.getElementById("useLocationBtn").addEventListener("click", () => {
   const btn = document.getElementById("useLocationBtn");
