@@ -8,6 +8,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="theme-color" content="#F7F5F2">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
   /* ============================================================
      DESIGN TOKENS
@@ -517,6 +518,35 @@
     border-radius: 12px;
   }
 
+  /* QR code sheet — a centered card rather than a bottom sheet, since a
+     square code reads better centered than pinned to the bottom edge. */
+  .qr-sheet {
+    position: fixed;
+    left: 50%; top: 50%;
+    transform: translate(-50%, -50%) scale(0.95);
+    opacity: 0;
+    background: var(--surface);
+    border-radius: 20px;
+    padding: 22px 20px calc(20px + var(--safe-bottom));
+    width: min(320px, 88vw);
+    z-index: 31;
+    text-align: center;
+    transition: transform 0.2s ease, opacity 0.2s ease;
+  }
+  .sheet-backdrop.open .qr-sheet { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+  .qr-code-wrap {
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 220px;
+    margin: 4px 0 14px;
+  }
+  .qr-contact-name { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
+  .qr-hint { font-size: 13px; color: var(--muted); line-height: 1.4; margin-bottom: 18px; }
+
   /* Form view */
   .field { margin-bottom: 14px; }
   .field label {
@@ -795,6 +825,16 @@
     <a class="share-option" id="shareViaTelegram" href="#"><span class="glyph">✈️</span>Telegram</a>
     <a class="share-option" id="shareViaMore" href="#" style="display:none;"><span class="glyph">⋯</span>More options</a>
     <button class="share-option cancel" id="shareSheetCancelBtn">Cancel</button>
+  </div>
+</div>
+
+<div class="sheet-backdrop" id="qrSheetBackdrop">
+  <div class="qr-sheet" id="qrSheet">
+    <div class="sheet-title">Scan to add contact</div>
+    <div class="qr-code-wrap" id="qrCodeCanvas"></div>
+    <div class="qr-contact-name" id="qrContactName"></div>
+    <div class="qr-hint">Point a phone camera at this code — it'll offer to add this contact straight to the address book, no app or typing needed.</div>
+    <button class="share-option cancel" id="qrSheetCancelBtn">Close</button>
   </div>
 </div>
 
@@ -1373,6 +1413,7 @@ function openDetail(c) {
     actions.appendChild(actionLink("💬", "WhatsApp", whatsappText ? `https://wa.me/${whatsappText.replace(/^\+/, "")}` : null));
     actions.appendChild(actionLink("✈️", "Telegram", telegramUsername ? `https://t.me/${telegramUsername}` : (telegramIsFallback ? `https://t.me/${telegramPhoneWithPlus}` : null)));
     actions.appendChild(actionLink("📤", "Share", "#", (e) => { e.preventDefault(); openShareSheet(c); }));
+    actions.appendChild(actionLink("🔳", "QR Code", "#", (e) => { e.preventDefault(); openQRSheet(c); }));
     body.appendChild(actions);
 
     const card = document.createElement("div");
@@ -1476,6 +1517,73 @@ function closeShareSheet() {
 document.getElementById("shareSheetCancelBtn").addEventListener("click", closeShareSheet);
 document.getElementById("shareSheetBackdrop").addEventListener("click", (e) => {
   if (e.target.id === "shareSheetBackdrop") closeShareSheet();
+});
+
+/* ---------------- QR code (add to phone contacts) ----------------
+   Encodes the contact as a vCard (the standard "contact card" format)
+   directly into the QR code. A phone's camera recognizes a scanned
+   vCard automatically and offers to add it to Contacts — no app, no
+   link, no server round-trip required. */
+
+// vCard reserves backslash, semicolon, comma and newline as syntax —
+// escape them so a comma in an address or a semicolon in notes can't
+// corrupt the fields that follow it.
+function escapeVCardField(value) {
+  return asText(value).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+
+function buildVCard(c) {
+  const name = asText(c.Name).trim() || "Unknown";
+  const phone = asText(c.Phone).trim();
+  const email = asText(c.Email).trim();
+  const address = asText(c.Address).trim();
+  const org = asText(c.Category).trim();
+  const whatsapp = asText(c.WhatsApp).trim() || phone;
+
+  // N is First/Last split for contact apps that use it to file the card;
+  // FN (the full display name) is what most phones actually show.
+  const nameParts = name.split(/\s+/).filter(Boolean);
+  const first = nameParts[0] || name;
+  const last = nameParts.slice(1).join(" ");
+
+  const lines = ["BEGIN:VCARD", "VERSION:3.0"];
+  lines.push(`N:${escapeVCardField(last)};${escapeVCardField(first)};;;`);
+  lines.push(`FN:${escapeVCardField(name)}`);
+  if (org) lines.push(`ORG:${escapeVCardField(org)}`);
+  if (phone) lines.push(`TEL;TYPE=CELL:${escapeVCardField(phone)}`);
+  if (whatsapp && whatsapp !== phone) lines.push(`TEL;TYPE=WORK:${escapeVCardField(whatsapp)}`);
+  if (email) lines.push(`EMAIL:${escapeVCardField(email)}`);
+  if (address) lines.push(`ADR;TYPE=HOME:;;${escapeVCardField(address)};;;;`);
+  lines.push("END:VCARD");
+  return lines.join("\n");
+}
+
+function openQRSheet(c) {
+  const canvas = document.getElementById("qrCodeCanvas");
+  canvas.innerHTML = "";
+  try {
+    // eslint-disable-next-line no-undef
+    new QRCode(canvas, {
+      text: buildVCard(c),
+      width: 200,
+      height: 200,
+      correctLevel: QRCode.CorrectLevel.M
+    });
+  } catch (err) {
+    console.error("QR generation failed", err);
+    canvas.textContent = "Couldn't generate a QR code for this contact.";
+  }
+  document.getElementById("qrContactName").textContent = asText(c.Name) || "(no name)";
+  document.getElementById("qrSheetBackdrop").classList.add("open");
+}
+
+function closeQRSheet() {
+  document.getElementById("qrSheetBackdrop").classList.remove("open");
+}
+
+document.getElementById("qrSheetCancelBtn").addEventListener("click", closeQRSheet);
+document.getElementById("qrSheetBackdrop").addEventListener("click", (e) => {
+  if (e.target.id === "qrSheetBackdrop") closeQRSheet();
 });
 
 async function toggleFavorite(c) {
