@@ -499,10 +499,37 @@
   .add-row button { padding: 0 16px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: 600; }
 
   .config-note { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* ---------- Auth screen (login / first-time setup) ---------- */
+  .auth-screen {
+    position: fixed; inset: 0; z-index: 60;
+    background: var(--bg);
+    display: flex; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .auth-card { width: 100%; max-width: 340px; }
+  .auth-card h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
+  .auth-card .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; line-height: 1.4; }
+  .auth-error { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 16px; }
+  .auth-hint { color: var(--muted); font-size: 12px; margin-top: 16px; line-height: 1.5; text-align: center; }
 </style>
 </head>
 <body>
-<div id="app">
+
+<div id="authScreen" class="auth-screen" style="display:none;">
+  <div class="auth-card">
+    <h1 id="authTitle">Log In</h1>
+    <p class="sub" id="authSubtitle">Sign in to see your contacts.</p>
+    <div class="field"><label>Username</label><input type="text" id="authUsername" autocomplete="username"></div>
+    <div class="field"><label>Password</label><input type="password" id="authPassword" autocomplete="current-password"></div>
+    <div class="field" id="authConfirmField" style="display:none;"><label>Confirm password</label><input type="password" id="authConfirmPassword"></div>
+    <button class="secondary-btn" id="authSubmitBtn" style="background:var(--accent); color:white; border-color:var(--accent);">Log In</button>
+    <div class="auth-error" id="authError"></div>
+    <p class="auth-hint" id="authHint"></p>
+  </div>
+</div>
+
+<div id="app" style="display:none;">
 
   <header class="topbar">
     <h1>Contacts</h1>
@@ -649,6 +676,21 @@
     </div>
     <div class="overlay-body">
       <div class="settings-group">
+        <h3>Account</h3>
+        <p class="config-note" id="accountInfoText">Logged in.</p>
+        <button class="secondary-btn" id="logoutBtn">Log Out</button>
+      </div>
+      <div class="settings-group" id="manageUsersGroup" style="display:none;">
+        <h3>Manage Users</h3>
+        <div class="option-list" id="userOptionList"></div>
+        <div class="add-row" style="flex-direction:column; gap:8px;">
+          <input type="text" id="newUsernameInput" placeholder="New username">
+          <input type="password" id="newUserPasswordInput" placeholder="Temporary password">
+          <button id="addUserBtn" style="width:100%;">Create Login</button>
+        </div>
+        <div class="hint" id="addUserStatus" style="margin-top:8px; margin-bottom:0;"></div>
+      </div>
+      <div class="settings-group">
         <h3>Google Sheet connection</h3>
         <div class="field">
           <label>Apps Script Web App URL</label>
@@ -717,6 +759,29 @@ function saveWebAppUrl(url) {
 }
 
 let WEB_APP_URL = loadWebAppUrl();
+
+/* ---------------- Session (login) ----------------
+   Each user's data is scoped server-side to whoever the session token
+   belongs to. The token is what's persisted here — never the password. */
+const SESSION_STORAGE_KEY = "contactManagerSession";
+
+function loadSession() {
+  try {
+    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) {
+    return null;
+  }
+}
+function saveSession(s) {
+  try { window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ }
+}
+function clearSession() {
+  try { window.localStorage.removeItem(SESSION_STORAGE_KEY); } catch (e) { /* ignore */ }
+}
+
+let session = loadSession(); // { token, username, isAdmin } | null
+let authScreenMode = "login"; // "login" | "bootstrap"
 
 const DEFAULT_CATEGORIES = ["Computer", "Electrical", "Family", "Work", "Personal", "Medical", "Other"];
 const DEFAULT_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -867,15 +932,18 @@ function setSync(state, text) {
    it from e.postData.contents regardless of the declared content type. */
 
 async function apiGet() {
-  const res = await fetch(WEB_APP_URL, { method: "GET" });
+  const url = WEB_APP_URL + (session && session.token ? ("?token=" + encodeURIComponent(session.token)) : "");
+  const res = await fetch(url, { method: "GET" });
   return res.json();
 }
 
 async function apiPost(payload) {
+  const body = Object.assign({}, payload);
+  if (session && session.token && !body.token) body.token = session.token;
   const res = await fetch(WEB_APP_URL, {
     method: "POST",
     headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(payload)
+    body: JSON.stringify(body)
   });
   return res.json();
 }
@@ -884,7 +952,14 @@ async function refreshFromSheet(showSyncing) {
   if (showSyncing) { pendingOps++; setSync("syncing", "Syncing…"); }
   try {
     const result = await apiGet();
+    if (result.status === "unauthenticated") {
+      session = null;
+      clearSession();
+      showAuthScreen(result.hasUsers);
+      return;
+    }
     if (result.status !== "ok") throw new Error(result.message || "Unknown error");
+    showApp();
     contacts = result.contacts;
     sheetCategories = result.categories || [];
     sheetBloodGroups = result.bloodGroups || [];
@@ -900,6 +975,70 @@ async function refreshFromSheet(showSyncing) {
       pendingOps = Math.max(0, pendingOps - 1);
       if (pendingOps === 0) setSync("synced", `Synced · ${contacts.length}`);
     }
+  }
+}
+
+/* ---------------- Auth screen / account UI ---------------- */
+
+function showAuthScreen(hasUsers) {
+  document.getElementById("app").style.display = "none";
+  document.getElementById("authScreen").style.display = "flex";
+  authScreenMode = hasUsers ? "login" : "bootstrap";
+  const isBootstrap = authScreenMode === "bootstrap";
+  document.getElementById("authTitle").textContent = isBootstrap ? "Set Up Your Account" : "Log In";
+  document.getElementById("authSubtitle").textContent = isBootstrap
+    ? "No accounts exist yet. Create the first (admin) login."
+    : "Sign in to see your contacts.";
+  document.getElementById("authConfirmField").style.display = isBootstrap ? "block" : "none";
+  document.getElementById("authSubmitBtn").textContent = isBootstrap ? "Create Account" : "Log In";
+  document.getElementById("authError").textContent = "";
+  document.getElementById("authHint").textContent = isBootstrap
+    ? ""
+    : "New logins are created by an admin from Settings, not from here.";
+  document.getElementById("authUsername").value = "";
+  document.getElementById("authPassword").value = "";
+  document.getElementById("authConfirmPassword").value = "";
+}
+
+function showApp() {
+  document.getElementById("authScreen").style.display = "none";
+  document.getElementById("app").style.display = "flex";
+  updateAccountUI();
+}
+
+function updateAccountUI() {
+  if (!session) return;
+  const info = document.getElementById("accountInfoText");
+  if (info) info.textContent = `Logged in as ${session.username}${session.isAdmin ? " (admin)" : ""}.`;
+  const manageGroup = document.getElementById("manageUsersGroup");
+  if (manageGroup) manageGroup.style.display = session.isAdmin ? "block" : "none";
+}
+
+async function loadUsersList() {
+  const listEl = document.getElementById("userOptionList");
+  listEl.innerHTML = '<div class="option-item"><span>Loading…</span></div>';
+  try {
+    const result = await apiPost({ action: "listUsers" });
+    if (result.status !== "ok") throw new Error(result.message || "Could not load users.");
+    listEl.innerHTML = "";
+    if (result.users.length === 0) {
+      listEl.innerHTML = '<div class="option-item"><span>No users yet.</span></div>';
+      return;
+    }
+    result.users.forEach(u => {
+      const row = document.createElement("div");
+      row.className = "option-item";
+      const span = document.createElement("span");
+      span.textContent = u.username + (u.isAdmin ? " (admin)" : "");
+      const resetBtn = document.createElement("button");
+      resetBtn.textContent = "Reset password";
+      resetBtn.addEventListener("click", () => resetUserPassword(u.username));
+      row.appendChild(span);
+      row.appendChild(resetBtn);
+      listEl.appendChild(row);
+    });
+  } catch (err) {
+    listEl.innerHTML = '<div class="option-item"><span>Could not load users.</span></div>';
   }
 }
 
@@ -1559,6 +1698,8 @@ document.getElementById("settingsBtn").addEventListener("click", () => {
   renderSettingsLists();
   document.getElementById("sheetUrlInput").value = WEB_APP_URL;
   document.getElementById("sheetUrlStatus").textContent = "";
+  updateAccountUI();
+  if (session && session.isAdmin) loadUsersList();
   document.getElementById("settingsOverlay").classList.add("open");
 });
 document.getElementById("settingsCloseBtn").addEventListener("click", () => {
@@ -1594,6 +1735,100 @@ document.getElementById("detailEditBtn").addEventListener("click", () => {
   document.getElementById("detailOverlay").classList.remove("open");
   openForm(selectedContact);
 });
+document.getElementById("authSubmitBtn").addEventListener("click", async () => {
+  const btn = document.getElementById("authSubmitBtn");
+  const username = document.getElementById("authUsername").value.trim();
+  const password = document.getElementById("authPassword").value;
+  const errorEl = document.getElementById("authError");
+  errorEl.textContent = "";
+
+  if (!username || !password) { errorEl.textContent = "Enter a username and password."; return; }
+
+  if (authScreenMode === "bootstrap") {
+    const confirmPw = document.getElementById("authConfirmPassword").value;
+    if (password.length < 4) { errorEl.textContent = "Password must be at least 4 characters."; return; }
+    if (password !== confirmPw) { errorEl.textContent = "Passwords don't match."; return; }
+    btn.disabled = true; btn.textContent = "Creating…";
+    try {
+      const result = await apiPost({ action: "bootstrapAdmin", username, password });
+      if (result.status !== "ok") throw new Error(result.message || "Could not create account.");
+      session = { token: result.token, username: result.username, isAdmin: result.isAdmin };
+      saveSession(session);
+      await refreshFromSheet(true);
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      btn.disabled = false; btn.textContent = "Create Account";
+    }
+  } else {
+    btn.disabled = true; btn.textContent = "Logging in…";
+    try {
+      const result = await apiPost({ action: "login", username, password });
+      if (result.status !== "ok") throw new Error(result.message || "Incorrect username or password.");
+      session = { token: result.token, username: result.username, isAdmin: result.isAdmin };
+      saveSession(session);
+      await refreshFromSheet(true);
+    } catch (err) {
+      errorEl.textContent = err.message;
+    } finally {
+      btn.disabled = false; btn.textContent = "Log In";
+    }
+  }
+});
+
+["authUsername", "authPassword", "authConfirmPassword"].forEach(id => {
+  document.getElementById(id).addEventListener("keydown", (e) => {
+    if (e.key === "Enter") document.getElementById("authSubmitBtn").click();
+  });
+});
+
+document.getElementById("logoutBtn").addEventListener("click", async () => {
+  if (!confirm("Log out of this account?")) return;
+  try { await apiPost({ action: "logout" }); } catch (e) { /* ignore network errors on logout */ }
+  session = null;
+  clearSession();
+  document.getElementById("settingsOverlay").classList.remove("open");
+  showAuthScreen(true);
+});
+
+async function resetUserPassword(username) {
+  const newPassword = prompt(`New password for "${username}" (at least 4 characters):`);
+  if (newPassword === null) return; // cancelled
+  if (newPassword.trim().length < 4) { alert("Password must be at least 4 characters."); return; }
+  try {
+    const result = await apiPost({ action: "resetPassword", username, newPassword: newPassword.trim() });
+    if (result.status !== "ok") throw new Error(result.message || "Could not reset password.");
+    alert(`Password reset for "${username}". Share the new password with them directly.`);
+  } catch (err) {
+    alert("Could not reset password: " + err.message);
+  }
+}
+
+document.getElementById("addUserBtn").addEventListener("click", async () => {
+  const usernameInput = document.getElementById("newUsernameInput");
+  const passwordInput = document.getElementById("newUserPasswordInput");
+  const status = document.getElementById("addUserStatus");
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+
+  if (!username || !password) { status.style.color = "var(--danger)"; status.textContent = "Enter a username and password."; return; }
+  if (password.length < 4) { status.style.color = "var(--danger)"; status.textContent = "Password must be at least 4 characters."; return; }
+
+  status.style.color = "var(--muted)";
+  status.textContent = "Creating…";
+  try {
+    const result = await apiPost({ action: "createUser", username, password });
+    if (result.status !== "ok") throw new Error(result.message || "Could not create login.");
+    usernameInput.value = ""; passwordInput.value = "";
+    status.style.color = "var(--muted)";
+    status.textContent = `Created "${username}". Share the username and password with them directly.`;
+    loadUsersList();
+  } catch (err) {
+    status.style.color = "var(--danger)";
+    status.textContent = err.message;
+  }
+});
+
 document.getElementById("formCancelBtn").addEventListener("click", closeForm);
 document.getElementById("formSaveBtn").addEventListener("click", saveForm);
 
@@ -1729,7 +1964,16 @@ document.getElementById("keypadCallBtn").addEventListener("click", () => {
 
 rebuildBloodGroupSelect();
 renderCategoryChips();
-refreshFromSheet(true);
+
+if (session && session.token) {
+  refreshFromSheet(true);
+} else {
+  apiGet().then(result => {
+    showAuthScreen(result && result.hasUsers);
+  }).catch(() => {
+    showAuthScreen(true); // network hiccup — default to the login form, user can retry
+  });
+}
 </script>
 </body>
 </html>
