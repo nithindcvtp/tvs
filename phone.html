@@ -465,6 +465,58 @@
   }
   .secondary-btn:disabled { opacity: 0.6; }
 
+  /* ---------- Share sheet (bottom action sheet) ---------- */
+  .sheet-backdrop {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.35);
+    z-index: 30;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+  }
+  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
+  .share-sheet {
+    position: fixed;
+    left: 0; right: 0; bottom: 0;
+    background: var(--surface);
+    border-radius: 18px 18px 0 0;
+    padding: 8px 16px calc(16px + var(--safe-bottom));
+    transform: translateY(100%);
+    transition: transform 0.25s ease;
+    z-index: 31;
+  }
+  .sheet-backdrop.open .share-sheet { transform: translateY(0); }
+  .share-sheet .sheet-title {
+    text-align: center;
+    font-size: 13px;
+    color: var(--muted);
+    padding: 10px 0 6px;
+  }
+  .share-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    width: 100%;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--line);
+    padding: 14px 6px;
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--ink);
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .share-option .glyph { font-size: 20px; width: 24px; text-align: center; }
+  .share-option.cancel {
+    justify-content: center;
+    color: var(--danger);
+    margin-top: 8px;
+    border-top: none;
+    background: var(--danger-soft);
+    border-radius: 12px;
+  }
+
   /* Form view */
   .field { margin-bottom: 14px; }
   .field label {
@@ -733,6 +785,17 @@
     </div>
   </div>
 
+</div>
+
+<div class="sheet-backdrop" id="shareSheetBackdrop">
+  <div class="share-sheet" id="shareSheet">
+    <div class="sheet-title">Share Contact</div>
+    <a class="share-option" id="shareViaMessage" href="#"><span class="glyph">💬</span>Message</a>
+    <a class="share-option" id="shareViaWhatsApp" href="#"><span class="glyph">📱</span>WhatsApp</a>
+    <a class="share-option" id="shareViaTelegram" href="#"><span class="glyph">✈️</span>Telegram</a>
+    <a class="share-option" id="shareViaMore" href="#" style="display:none;"><span class="glyph">⋯</span>More options</a>
+    <button class="share-option cancel" id="shareSheetCancelBtn">Cancel</button>
+  </div>
 </div>
 
 <script>
@@ -1309,6 +1372,7 @@ function openDetail(c) {
     actions.appendChild(actionLink("🗺️", "Map", mapHref));
     actions.appendChild(actionLink("💬", "WhatsApp", whatsappText ? `https://wa.me/${whatsappText.replace(/^\+/, "")}` : null));
     actions.appendChild(actionLink("✈️", "Telegram", telegramUsername ? `https://t.me/${telegramUsername}` : (telegramIsFallback ? `https://t.me/${telegramPhoneWithPlus}` : null)));
+    actions.appendChild(actionLink("📤", "Share", "#", (e) => { e.preventDefault(); openShareSheet(c); }));
     body.appendChild(actions);
 
     const card = document.createElement("div");
@@ -1358,6 +1422,61 @@ function actionLink(glyph, label, href, onClick) {
   a.innerHTML = `<span class="glyph">${glyph}</span>${label}`;
   return a;
 }
+
+/* ---------------- Share contact ---------------- */
+
+function buildShareText(c) {
+  const lines = [];
+  const name = asText(c.Name).trim();
+  const phone = asText(c.Phone).trim();
+  const whatsapp = asText(c.WhatsApp).trim();
+  const telegram = asText(c.Telegram).replace(/^@/, "").trim();
+  const email = asText(c.Email).trim();
+  const address = asText(c.Address).trim();
+
+  if (name) lines.push(name);
+  if (phone) lines.push(`Phone: ${phone}`);
+  if (whatsapp) lines.push(`WhatsApp: ${whatsapp}`);
+  if (telegram) lines.push(`Telegram: @${telegram}`);
+  if (email) lines.push(`Email: ${email}`);
+  if (address) lines.push(`Address: ${address}`);
+  return lines.join("\n");
+}
+
+function openShareSheet(c) {
+  const text = buildShareText(c);
+  const encoded = encodeURIComponent(text);
+
+  document.getElementById("shareViaMessage").href = `sms:?&body=${encoded}`;
+  document.getElementById("shareViaWhatsApp").href = `https://wa.me/?text=${encoded}`;
+  document.getElementById("shareViaTelegram").href = `https://t.me/share/url?url=&text=${encoded}`;
+
+  const moreBtn = document.getElementById("shareViaMore");
+  if (navigator.share) {
+    moreBtn.style.display = "flex";
+    moreBtn.onclick = (e) => {
+      e.preventDefault();
+      closeShareSheet();
+      navigator.share({ text }).catch(() => {}); // user cancelling the native sheet throws — ignore
+    };
+  } else {
+    moreBtn.style.display = "none";
+  }
+
+  [document.getElementById("shareViaMessage"), document.getElementById("shareViaWhatsApp"), document.getElementById("shareViaTelegram")]
+    .forEach(el => { el.onclick = () => closeShareSheet(); });
+
+  document.getElementById("shareSheetBackdrop").classList.add("open");
+}
+
+function closeShareSheet() {
+  document.getElementById("shareSheetBackdrop").classList.remove("open");
+}
+
+document.getElementById("shareSheetCancelBtn").addEventListener("click", closeShareSheet);
+document.getElementById("shareSheetBackdrop").addEventListener("click", (e) => {
+  if (e.target.id === "shareSheetBackdrop") closeShareSheet();
+});
 
 async function toggleFavorite(c) {
   const newFavorite = isFavorite(c) ? "" : "Yes";
