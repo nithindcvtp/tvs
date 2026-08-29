@@ -624,6 +624,7 @@
   <div class="filter-bar" id="filterBar">
     <input type="text" class="search-input" id="searchInput" placeholder="Search contacts">
     <div class="chip-row" id="categoryChips"></div>
+    <div class="chip-row" id="favGroupChips" style="display:none;"></div>
   </div>
 
   <main id="list-view"></main>
@@ -728,6 +729,12 @@
         </select>
       </div>
 
+      <div class="field">
+        <label>Groups</label>
+        <div class="chip-row" id="formGroupChips"></div>
+        <div class="hint">Tap to add this contact to one or more groups. Manage the list of groups from Settings.</div>
+      </div>
+
       <div class="field-row">
         <div class="field">
           <label>WhatsApp number</label>
@@ -805,6 +812,15 @@
         <div class="add-row">
           <input type="text" id="newBloodInput" placeholder="Add a blood group">
           <button id="addBloodBtn">Add</button>
+        </div>
+      </div>
+      <div class="settings-group">
+        <h3>Group options</h3>
+        <p class="config-note">Groups let you organize favorites into small folders like Family or Work — a contact can belong to more than one.</p>
+        <div class="option-list" id="groupOptionList"></div>
+        <div class="add-row">
+          <input type="text" id="newGroupInput" placeholder="Add a group (e.g. Family)">
+          <button id="addGroupBtn">Add</button>
         </div>
       </div>
       <div class="settings-group">
@@ -896,6 +912,7 @@ let authScreenMode = "login"; // "login" | "bootstrap"
 
 const DEFAULT_CATEGORIES = ["Computer", "Electrical", "Family", "Work", "Personal", "Medical", "Other"];
 const DEFAULT_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
+const DEFAULT_GROUPS = ["Family", "Work"];
 
 // In-memory only (see note above about why this isn't in localStorage
 // inside Claude's own preview sandbox; once deployed to GitHub Pages,
@@ -903,6 +920,7 @@ const DEFAULT_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
 // and blood groups persist for good and are shared across every visitor.
 let sheetCategories = [];
 let sheetBloodGroups = [];
+let sheetGroups = [];
 
 let contacts = [];       // authoritative-ish local cache from the Sheet
 let selectedContact = null;
@@ -920,6 +938,9 @@ let currentPhotoUrl = "";
 let pendingPhotoBase64 = null;
 let pendingPhotoMimeType = null;
 let photoRemoved = false;
+
+// Groups currently toggled "on" in the open add/edit form (multi-select).
+let selectedFormGroups = [];
 
 /* ---------------- Recents (call log) ----------------
    Unlike contacts/categories, this is per-device usage history, not
@@ -953,6 +974,12 @@ function addRecentCall(name, phone) {
 
 function isFavorite(c) {
   return asText(c.Favorite).trim().toLowerCase() === "yes";
+}
+
+// Groups is stored as a single comma-separated string on the contact
+// row (e.g. "Family, Work") so a contact can belong to more than one.
+function contactGroups(c) {
+  return asText(c.Groups).split(",").map(s => s.trim()).filter(Boolean);
 }
 
 /* ---------------- Helpers ---------------- */
@@ -1074,6 +1101,7 @@ async function refreshFromSheet(showSyncing) {
     contacts = result.contacts;
     sheetCategories = result.categories || [];
     sheetBloodGroups = result.bloodGroups || [];
+    sheetGroups = result.groups || [];
     rebuildCategorySuggestions();
     rebuildBloodGroupSelect();
     renderList();
@@ -1176,6 +1204,34 @@ function allBloodGroups() {
   return [...new Set([...DEFAULT_BLOOD_GROUPS, ...sheetBloodGroups])];
 }
 
+function allGroups() {
+  return [...new Set([...DEFAULT_GROUPS, ...sheetGroups])];
+}
+
+function renderFormGroupChips() {
+  const row = document.getElementById("formGroupChips");
+  // Fold in any group already on this contact even if it's since been
+  // removed from Settings, so editing never silently drops it.
+  const all = [...new Set([...allGroups(), ...selectedFormGroups])].sort();
+  row.innerHTML = "";
+  if (all.length === 0) {
+    row.innerHTML = '<span class="hint" style="margin:0;">No groups yet — add one from Settings.</span>';
+    return;
+  }
+  all.forEach(g => {
+    const chip = document.createElement("div");
+    chip.className = "chip" + (selectedFormGroups.includes(g) ? " active" : "");
+    chip.textContent = g;
+    chip.onclick = () => {
+      selectedFormGroups = selectedFormGroups.includes(g)
+        ? selectedFormGroups.filter(x => x !== g)
+        : [...selectedFormGroups, g];
+      renderFormGroupChips();
+    };
+    row.appendChild(chip);
+  });
+}
+
 function rebuildBloodGroupSelect() {
   const select = document.getElementById("fBloodGroup");
   const current = select.value;
@@ -1189,10 +1245,12 @@ function rebuildBloodGroupSelect() {
 }
 
 async function addOption(type, rawValue) {
-  const value = type === "Category" ? toTitleCase(rawValue) : rawValue.trim().toUpperCase();
+  const value = (type === "Category" || type === "Group") ? toTitleCase(rawValue) : rawValue.trim().toUpperCase();
   if (!value) return;
   const currentList = type === "Category"
     ? [...new Set([...DEFAULT_CATEGORIES, ...sheetCategories])]
+    : type === "Group"
+    ? allGroups()
     : allBloodGroups();
   if (currentList.includes(value)) {
     alert(`'${value}' is already in the list.`);
@@ -1230,6 +1288,7 @@ async function removeOption(type, value) {
 /* ---------------- Category filter chips ---------------- */
 
 let activeCategory = "All";
+let activeFavoriteGroup = "All"; // group folder selected inside the Favorites tab
 
 function renderCategoryChips() {
   const used = [...new Set(contacts.map(c => (c.Category || "").trim()).filter(Boolean))].sort();
@@ -1244,17 +1303,45 @@ function renderCategoryChips() {
   });
 }
 
+// Group "folders" shown only inside the Favorites tab — built from
+// whatever groups actually appear on a favorited contact, so the row
+// disappears entirely until there's something to filter by.
+function renderFavGroupChips() {
+  const row = document.getElementById("favGroupChips");
+  if (activeTab !== "favorites") {
+    row.style.display = "none";
+    return;
+  }
+  const used = [...new Set(contacts.filter(isFavorite).flatMap(contactGroups))].sort();
+  row.innerHTML = "";
+  if (used.length === 0) {
+    row.style.display = "none";
+    return;
+  }
+  row.style.display = "flex";
+  ["All", ...used].forEach(g => {
+    const chip = document.createElement("div");
+    chip.className = "chip" + (g === activeFavoriteGroup ? " active" : "");
+    chip.textContent = g;
+    chip.onclick = () => { activeFavoriteGroup = g; renderFavGroupChips(); renderList(); };
+    row.appendChild(chip);
+  });
+}
+
 /* ---------------- List rendering ---------------- */
 
 function renderList() {
   const listEl = document.getElementById("list-view");
   const search = document.getElementById("searchInput").value.trim().toLowerCase();
 
+  renderFavGroupChips();
+
   let filtered = contacts.filter(c => {
     if (activeTab === "favorites" && !isFavorite(c)) return false;
+    if (activeTab === "favorites" && activeFavoriteGroup !== "All" && !contactGroups(c).includes(activeFavoriteGroup)) return false;
     if (activeCategory !== "All" && (c.Category || "") !== activeCategory) return false;
     if (search) {
-      const haystack = [c.Name, c.Phone, c.Email, c.Address, c.Notes, c.Category, c.Gender, c.WhatsApp, c.Telegram].join(" ").toLowerCase();
+      const haystack = [c.Name, c.Phone, c.Email, c.Address, c.Notes, c.Category, c.Gender, c.WhatsApp, c.Telegram, c.Groups].join(" ").toLowerCase();
       if (!haystack.includes(search)) return false;
     }
     return true;
@@ -1424,6 +1511,7 @@ function openDetail(c) {
       ["WhatsApp", whatsappIsFallback ? `${whatsappRaw} (using phone number)` : asText(c.WhatsApp)],
       ["Telegram", telegramIsFallback ? `${phoneText.trim()} (using phone number)` : asText(c.Telegram)],
       ["Location", hasCoords ? `${latText}, ${lngText}` : ""],
+      ["Groups", contactGroups(c).join(", ")],
       ["Date Added", asText(c.DateAdded)]
     ].forEach(([label, value]) => {
       const row = document.createElement("div");
@@ -1636,6 +1724,9 @@ function openForm(contact) {
   document.getElementById("fLongitude").value = contact ? (contact.Longitude || "") : "";
   document.getElementById("locationStatus").textContent = "";
 
+  selectedFormGroups = contact ? contactGroups(contact) : [];
+  renderFormGroupChips();
+
   currentPhotoUrl = contact ? asText(contact.PhotoUrl).trim() : "";
   pendingPhotoBase64 = null;
   pendingPhotoMimeType = null;
@@ -1663,7 +1754,8 @@ function readFormValues() {
     WhatsApp: document.getElementById("fWhatsApp").value.trim(),
     Telegram: document.getElementById("fTelegram").value.trim().replace(/^@/, ""),
     Latitude: document.getElementById("fLatitude").value.trim(),
-    Longitude: document.getElementById("fLongitude").value.trim()
+    Longitude: document.getElementById("fLongitude").value.trim(),
+    Groups: selectedFormGroups.join(", ")
   };
 }
 
@@ -1881,6 +1973,7 @@ function resetKeypad() {
 
 function switchTab(tab) {
   activeTab = tab;
+  if (tab !== "favorites") activeFavoriteGroup = "All"; // leaving Favorites clears any group filter
 
   document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
 
@@ -1910,6 +2003,12 @@ function renderSettingsLists() {
   bloodList.innerHTML = "";
   allBloodGroups().sort().forEach(bg => {
     bloodList.appendChild(settingsRow(bg, () => removeOption("BloodGroup", bg), DEFAULT_BLOOD_GROUPS.includes(bg)));
+  });
+
+  const groupList = document.getElementById("groupOptionList");
+  groupList.innerHTML = "";
+  allGroups().sort().forEach(g => {
+    groupList.appendChild(settingsRow(g, () => removeOption("Group", g), DEFAULT_GROUPS.includes(g)));
   });
 }
 
@@ -2234,6 +2333,13 @@ document.getElementById("addBloodBtn").addEventListener("click", () => {
   if (!value) return;
   input.value = "";
   addOption("BloodGroup", value);
+});
+document.getElementById("addGroupBtn").addEventListener("click", () => {
+  const input = document.getElementById("newGroupInput");
+  const value = input.value.trim();
+  if (!value) return;
+  input.value = "";
+  addOption("Group", value);
 });
 
 /* ---------------- Tab bar / Recents / Keypad wiring ---------------- */
