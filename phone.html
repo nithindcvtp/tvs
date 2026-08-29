@@ -33,7 +33,7 @@
     --tabbar-height: 58px;
   }
 
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
 
   html, body {
     margin: 0;
@@ -1714,9 +1714,15 @@ document.getElementById("keypadBackspaceBtn").addEventListener("click", () => {
 
 document.getElementById("keypadCallBtn").addEventListener("click", () => {
   if (!keypadDigits) return;
-  const matched = findContactByPhone(keypadDigits);
-  addRecentCall(matched ? matched.Name : null, keypadDigits);
-  resetKeypad();
+  const dialedDigits = keypadDigits;
+  const matched = findContactByPhone(dialedDigits);
+  addRecentCall(matched ? matched.Name : null, dialedDigits);
+  // Defer clearing the keypad — the browser's default action for this
+  // same click (following the tel: link) runs right after this handler
+  // returns, using whatever href is on the element at that moment.
+  // Resetting synchronously here was wiping the href out before the
+  // browser could actually place the call.
+  setTimeout(resetKeypad, 400);
 });
 
 /* ---------------- Boot ---------------- */
