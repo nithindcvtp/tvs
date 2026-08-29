@@ -680,6 +680,14 @@
         <p class="config-note" id="accountInfoText">Logged in.</p>
         <button class="secondary-btn" id="logoutBtn">Log Out</button>
       </div>
+      <div class="settings-group">
+        <h3>Backup &amp; Restore</h3>
+        <p class="config-note">Backs up only your own contacts to a file you keep. Restoring replaces all of your current contacts with what's in that file.</p>
+        <button class="secondary-btn" id="backupContactsBtn" style="width:100%;">⬇️ Backup My Contacts</button>
+        <button class="secondary-btn" id="restoreContactsBtn" style="width:100%; margin-top:8px;">⬆️ Restore From Backup</button>
+        <input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
+        <div class="hint" id="backupRestoreStatus" style="margin-top:8px; margin-bottom:0;"></div>
+      </div>
       <div class="settings-group" id="manageUsersGroup" style="display:none;">
         <h3>Manage Users</h3>
         <div class="option-list" id="userOptionList"></div>
@@ -1789,6 +1797,82 @@ document.getElementById("logoutBtn").addEventListener("click", async () => {
   clearSession();
   document.getElementById("settingsOverlay").classList.remove("open");
   showAuthScreen(true);
+});
+
+/* ---------------- Backup / restore (own contacts only) ---------------- */
+
+document.getElementById("backupContactsBtn").addEventListener("click", async () => {
+  const status = document.getElementById("backupRestoreStatus");
+  status.style.color = "var(--muted)";
+  status.textContent = "Preparing backup…";
+  try {
+    const result = await apiPost({ action: "backupContacts" });
+    if (result.status !== "ok") throw new Error(result.message || "Could not create backup.");
+    const blob = new Blob([JSON.stringify(result.backup, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `contacts-backup-${session.username}-${stamp}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    status.style.color = "var(--muted)";
+    status.textContent = `Backed up ${result.backup.contacts.length} contact(s).`;
+  } catch (err) {
+    status.style.color = "var(--danger)";
+    status.textContent = err.message;
+  }
+});
+
+document.getElementById("restoreContactsBtn").addEventListener("click", () => {
+  document.getElementById("restoreFileInput").click();
+});
+
+document.getElementById("restoreFileInput").addEventListener("change", (e) => {
+  const file = e.target.files[0];
+  e.target.value = ""; // clear so picking the same file again still fires "change"
+  if (!file) return;
+  const status = document.getElementById("backupRestoreStatus");
+
+  const reader = new FileReader();
+  reader.onload = async () => {
+    let backup;
+    try {
+      backup = JSON.parse(reader.result);
+    } catch (err) {
+      status.style.color = "var(--danger)";
+      status.textContent = "That file isn't valid JSON.";
+      return;
+    }
+    if (!backup || !Array.isArray(backup.contacts)) {
+      status.style.color = "var(--danger)";
+      status.textContent = "That file doesn't look like a contacts backup.";
+      return;
+    }
+    const mismatchNote = (backup.username && backup.username !== session.username)
+      ? `\n\nNote: this backup was made from the account "${backup.username}", not your current account "${session.username}".`
+      : "";
+    const confirmed = confirm(
+      `Restore ${backup.contacts.length} contact(s) from this backup?\n\nThis replaces ALL of your current contacts — this can't be undone.${mismatchNote}`
+    );
+    if (!confirmed) return;
+
+    status.style.color = "var(--muted)";
+    status.textContent = "Restoring…";
+    try {
+      const result = await apiPost({ action: "restoreContacts", backup });
+      if (result.status !== "ok") throw new Error(result.message || "Could not restore backup.");
+      status.style.color = "var(--muted)";
+      status.textContent = `Restored ${result.restored} contact(s).`;
+      await refreshFromSheet(true);
+    } catch (err) {
+      status.style.color = "var(--danger)";
+      status.textContent = err.message;
+    }
+  };
+  reader.readAsText(file);
 });
 
 async function resetUserPassword(username) {
