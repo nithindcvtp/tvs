@@ -653,7 +653,7 @@
         </div>
         <div class="field"><label>Telegram username</label><input type="text" id="fTelegram" placeholder="e.g. username (no @)"></div>
       </div>
-      <div class="hint">Leave WhatsApp blank to use the phone number above automatically.</div>
+      <div class="hint">Leave WhatsApp or Telegram blank to use the phone number above automatically.</div>
 
       <div class="field">
         <label>Location</label>
@@ -1287,7 +1287,10 @@ function openDetail(c) {
     const whatsappRaw = asText(c.WhatsApp).trim() || phoneText.trim();
     const whatsappIsFallback = !asText(c.WhatsApp).trim() && !!phoneText.trim();
     const whatsappText = whatsappRaw.replace(/[^\d+]/g, "");
-    const telegramText = asText(c.Telegram).replace(/^@/, "").trim();
+    const telegramUsername = asText(c.Telegram).replace(/^@/, "").trim();
+    const telegramIsFallback = !telegramUsername && !!phoneText.trim();
+    const telegramPhoneDigits = phoneText.replace(/[^\d+]/g, "");
+    const telegramPhoneWithPlus = telegramPhoneDigits ? (telegramPhoneDigits.startsWith("+") ? telegramPhoneDigits : `+${telegramPhoneDigits}`) : "";
     const latText = asText(c.Latitude).trim();
     const lngText = asText(c.Longitude).trim();
     const hasCoords = latText !== "" && lngText !== "" && !isNaN(parseFloat(latText)) && !isNaN(parseFloat(lngText));
@@ -1305,7 +1308,7 @@ function openDetail(c) {
     actions.appendChild(actionLink("✉️", "Email", emailText ? `mailto:${emailText}` : null));
     actions.appendChild(actionLink("🗺️", "Map", mapHref));
     actions.appendChild(actionLink("💬", "WhatsApp", whatsappText ? `https://wa.me/${whatsappText.replace(/^\+/, "")}` : null));
-    actions.appendChild(actionLink("✈️", "Telegram", telegramText ? `https://t.me/${telegramText}` : null));
+    actions.appendChild(actionLink("✈️", "Telegram", telegramUsername ? `https://t.me/${telegramUsername}` : (telegramIsFallback ? `https://t.me/${telegramPhoneWithPlus}` : null)));
     body.appendChild(actions);
 
     const card = document.createElement("div");
@@ -1314,7 +1317,7 @@ function openDetail(c) {
       ["Phone", phoneText], ["Email", emailText], ["Address", addressText], ["Notes", asText(c.Notes)],
       ["Category", asText(c.Category)], ["Blood Group", asText(c.BloodGroup)], ["Gender", asText(c.Gender)],
       ["WhatsApp", whatsappIsFallback ? `${whatsappRaw} (using phone number)` : asText(c.WhatsApp)],
-      ["Telegram", asText(c.Telegram)],
+      ["Telegram", telegramIsFallback ? `${phoneText.trim()} (using phone number)` : asText(c.Telegram)],
       ["Location", hasCoords ? `${latText}, ${lngText}` : ""],
       ["Date Added", asText(c.DateAdded)]
     ].forEach(([label, value]) => {
