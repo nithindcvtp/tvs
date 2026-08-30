@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Smart Relay — Cloud Control</title>
+<style>
+  :root {
+    --bg: #f5f6f8; --surface: #ffffff; --ink: #1c1f26; --muted: #6b7280;
+    --line: #e5e7eb; --accent: #2563eb; --green: #16a34a; --red: #dc2626; --amber: #d97706;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
+  .wrap { max-width: 780px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
+  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+  .field input, .field select { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; background: var(--bg); }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row .field { flex: 1; min-width: 120px; }
+  button { font-size: 14px; font-weight: 600; border: none; border-radius: 10px; padding: 11px 16px; cursor: pointer; }
+  .btn-on { background: var(--green); color: white; }
+  .btn-off { background: var(--red); color: white; }
+  .btn-auto { background: var(--accent); color: white; }
+  .btn-neutral { background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
+  .btn-danger-outline { background: white; color: var(--red); border: 1px solid var(--red); }
+  .status-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .status-row:last-child { border-bottom: none; }
+  .status-row .label { color: var(--muted); }
+  .pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
+  .pill.on { background: #dcfce7; color: #166534; }
+  .pill.off { background: #fee2e2; color: #991b1b; }
+  .pill.auto { background: #dbeafe; color: #1e40af; }
+  .schedule-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .schedule-item:last-child { border-bottom: none; }
+  .schedule-item .meta { color: var(--muted); font-size: 12px; }
+  .schedule-item button { padding: 6px 10px; font-size: 12px; }
+  .log-line { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .log-line:last-child { border-bottom: none; }
+  .empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
+  .gate { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 10; }
+  .gate-card { max-width: 340px; width: 100%; }
+  .gate-card h1 { font-size: 20px; }
+  .toast { font-size: 12px; margin-top: 8px; min-height: 16px; }
+  .toast.err { color: var(--red); }
+  .toast.ok { color: var(--green); }
+</style>
+</head>
+<body>
+
+<div id="gate" class="gate" style="display:none;">
+  <div class="gate-card card">
+    <h1>Connect</h1>
+    <div class="field"><label>Apps Script Web App URL</label><input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="field"><label>Shared Key</label><input type="password" id="sharedKeyInput" placeholder="matches SHARED_KEY in Code.gs"></div>
+    <button class="btn-auto" id="gateConnectBtn" style="width:100%;">Connect</button>
+    <div class="toast" id="gateToast"></div>
+  </div>
+</div>
+
+<div id="app" class="wrap" style="display:none;">
+  <h1>Smart Relay</h1>
+  <p class="sub">Cloud control via Google Sheets. <span id="lastSeenText"></span></p>
+
+  <div class="card">
+    <h2>Relay</h2>
+    <p style="margin: 0 0 14px;">Current state: <span id="relayPill" class="pill off">—</span></p>
+    <div class="row">
+      <button class="btn-on" onclick="setDesiredState('ON')">Turn ON</button>
+      <button class="btn-off" onclick="setDesiredState('OFF')">Turn OFF</button>
+      <button class="btn-auto" onclick="setDesiredState('AUTO')">Auto (schedule)</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Device status</h2>
+    <div class="status-row"><span class="label">WiFi signal</span><span id="statRSSI">—</span></div>
+    <div class="status-row"><span class="label">Uptime</span><span id="statUptime">—</span></div>
+    <div class="status-row"><span class="label">Voltage</span><span id="statVcc">—</span></div>
+    <div class="status-row"><span class="label">Firmware</span><span id="statFirmware">—</span></div>
+    <div class="status-row"><span class="label">Last check-in</span><span id="statLastSeen">—</span></div>
+  </div>
+
+  <div class="card">
+    <h2>Add schedule</h2>
+    <div class="row">
+      <div class="field"><label>Date</label><input type="date" id="schedDate"></div>
+      <div class="field" style="display:flex; align-items:end;">
+        <label style="display:flex; align-items:center; gap:8px; font-weight:400; color:var(--ink); margin:0;">
+          <input type="checkbox" id="schedRepeat" style="width:auto;"> Repeat daily
+        </label>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>ON time</label><input type="time" id="schedOnTime"></div>
+      <div class="field"><label>OFF time</label><input type="time" id="schedOffTime"></div>
+    </div>
+    <button class="btn-auto" onclick="addSchedule()">Add Schedule</button>
+  </div>
+
+  <div class="card">
+    <h2>Charging calculator</h2>
+    <div class="row">
+      <div class="field"><label>Min per 1%</label><input type="number" id="calcMinPer" value="3"></div>
+      <div class="field"><label>Current %</label><input type="number" id="calcCurrent" value="30"></div>
+      <div class="field"><label>Target %</label><input type="number" id="calcTarget" value="90"></div>
+    </div>
+    <div class="field"><label>ON time</label><input type="time" id="calcOnTime"></div>
+    <div class="row">
+      <button class="btn-neutral" onclick="calculateCharge()">Calculate</button>
+      <button class="btn-auto" onclick="exportSchedule()">Export to Schedule</button>
+    </div>
+    <p style="margin:12px 0 0; font-size:14px;" id="calcResultText"></p>
+  </div>
+
+  <div class="card">
+    <h2>Schedules</h2>
+    <div id="scheduleList"><p class="empty">Loading…</p></div>
+  </div>
+
+  <div class="card">
+    <h2>Firmware update (OTA)</h2>
+    <div class="field"><label>Firmware .bin URL</label><input type="text" id="otaUrlInput" placeholder="https://.../firmware.bin"></div>
+    <div class="field"><label>Version label</label><input type="text" id="otaVersionInput" placeholder="e.g. 1.1.0"></div>
+    <div class="row">
+      <button class="btn-auto" onclick="pushOta()">Push Update</button>
+      <button class="btn-neutral" onclick="clearOta()">Cancel Pending Update</button>
+    </div>
+    <p class="toast" id="otaToast"></p>
+    <p class="sub" style="margin-top:10px;">The device checks in roughly every 15 seconds and will download this file if its reported version doesn't match. Host the .bin somewhere reachable over plain internet (e.g. a GitHub release asset).</p>
+  </div>
+
+  <div class="card">
+    <h2>Logs</h2>
+    <div id="logList"><p class="empty">Loading…</p></div>
+  </div>
+
+  <div class="card">
+    <h2>Device control</h2>
+    <button class="btn-danger-outline" onclick="rebootDevice()">Reboot Device</button>
+  </div>
+</div>
+
+<script>
+const STORAGE_KEY = "relayControlConnection";
+let connection = loadConnection();
+let calcResult = null;
+
+function loadConnection() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch (e) { return null; }
+}
+function saveConnection(c) {
+  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); } catch (e) {}
+}
+
+async function apiGet() {
+  const url = connection.gasUrl + "?key=" + encodeURIComponent(connection.sharedKey);
+  const res = await fetch(url);
+  return res.json();
+}
+async function apiPost(payload) {
+  const body = Object.assign({ key: connection.sharedKey }, payload);
+  const res = await fetch(connection.gasUrl, {
+    method: "POST",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify(body)
+  });
+  return res.json();
+}
+
+function showGate() {
+  document.getElementById("app").style.display = "none";
+  document.getElementById("gate").style.display = "flex";
+}
+function showApp() {
+  document.getElementById("gate").style.display = "none";
+  document.getElementById("app").style.display = "block";
+}
+
+document.getElementById("gateConnectBtn").addEventListener("click", async () => {
+  const gasUrl = document.getElementById("gasUrlInput").value.trim();
+  const sharedKey = document.getElementById("sharedKeyInput").value.trim();
+  const toast = document.getElementById("gateToast");
+  if (!gasUrl || !sharedKey) { toast.className = "toast err"; toast.textContent = "Enter both fields."; return; }
+
+  connection = { gasUrl, sharedKey };
+  toast.className = "toast"; toast.textContent = "Connecting…";
+  try {
+    const result = await apiGet();
+    if (result.status !== "ok") throw new Error(result.message || "Could not connect.");
+    saveConnection(connection);
+    showApp();
+    refresh();
+    setInterval(refresh, 5000);
+  } catch (err) {
+    toast.className = "toast err";
+    toast.textContent = "Could not connect: " + err.message;
+  }
+});
+
+function fmtUptime(seconds) {
+  seconds = Number(seconds) || 0;
+  const h = Math.floor(seconds / 3600);
+  const m = Math.floor((seconds % 3600) / 60);
+  const s = seconds % 60;
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+function fmtAgo(isoString) {
+  if (!isoString) return "never";
+  const diffMs = Date.now() - new Date(isoString).getTime();
+  const diffSec = Math.round(diffMs / 1000);
+  if (diffSec < 60) return diffSec + "s ago";
+  if (diffSec < 3600) return Math.round(diffSec / 60) + "m ago";
+  return Math.round(diffSec / 3600) + "h ago";
+}
+
+async function refresh() {
+  try {
+    const result = await apiGet();
+    if (result.status !== "ok") throw new Error(result.message || "Refresh failed");
+    render(result);
+  } catch (err) {
+    console.error(err);
+  }
+}
+
+function render(result) {
+  const d = result.device || {};
+
+  const pill = document.getElementById("relayPill");
+  const desired = d.DesiredState || "AUTO";
+  const actual = d.RelayState || "—";
+  if (desired === "AUTO") {
+    pill.className = "pill auto";
+    pill.textContent = "AUTO · relay " + actual;
+  } else {
+    pill.className = "pill " + (actual === "ON" ? "on" : "off");
+    pill.textContent = desired + " (manual)";
+  }
+
+  document.getElementById("statRSSI").textContent = d.WifiRSSI ? d.WifiRSSI + " dBm" : "—";
+  document.getElementById("statUptime").textContent = d.Uptime ? fmtUptime(d.Uptime) : "—";
+  document.getElementById("statVcc").textContent = d.Vcc ? Number(d.Vcc).toFixed(2) + " V" : "—";
+  document.getElementById("statFirmware").textContent = d.FirmwareVersion || "—";
+  document.getElementById("statLastSeen").textContent = fmtAgo(d.LastSeen);
+  document.getElementById("lastSeenText").textContent = d.LastSeen ? "Last check-in " + fmtAgo(d.LastSeen) + "." : "";
+
+  renderSchedules(result.schedules || []);
+  renderLogs(result.logs || []);
+}
+
+function renderSchedules(schedules) {
+  const el = document.getElementById("scheduleList");
+  if (schedules.length === 0) { el.innerHTML = '<p class="empty">No schedules yet.</p>'; return; }
+  el.innerHTML = "";
+  schedules.forEach(s => {
+    const row = document.createElement("div");
+    row.className = "schedule-item";
+    const left = document.createElement("div");
+    left.innerHTML = `<div>${s.onTime} \u2192 ${s.offTime}</div><div class="meta">${s.repeat ? "Repeats daily" : s.date}</div>`;
+    const btn = document.createElement("button");
+    btn.className = "btn-danger-outline";
+    btn.textContent = "Delete";
+    btn.addEventListener("click", () => deleteSchedule(s.row));
+    row.appendChild(left);
+    row.appendChild(btn);
+    el.appendChild(row);
+  });
+}
+
+function renderLogs(logs) {
+  const el = document.getElementById("logList");
+  if (logs.length === 0) { el.innerHTML = '<p class="empty">No logs yet.</p>'; return; }
+  el.innerHTML = "";
+  logs.forEach(l => {
+    const line = document.createElement("div");
+    line.className = "log-line";
+    const t = l.time ? new Date(l.time).toLocaleString() : "";
+    line.textContent = `[${t}] ${l.message}`;
+    el.appendChild(line);
+  });
+}
+
+async function setDesiredState(state) {
+  try {
+    const result = await apiPost({ action: "setDesiredState", state });
+    if (result.status !== "ok") throw new Error(result.message);
+    refresh();
+  } catch (err) {
+    alert("Could not set state: " + err.message);
+  }
+}
+
+async function addSchedule(overrides) {
+  const date = document.getElementById("schedDate").value;
+  const onTime = document.getElementById("schedOnTime").value;
+  const offTime = document.getElementById("schedOffTime").value;
+  const repeat = document.getElementById("schedRepeat").checked;
+
+  const data = Object.assign({
+    date: date || new Date().toISOString().slice(0, 10),
+    onTime, offTime, repeat,
+    startPercent: 0, targetPercent: 0, minutesPerPercent: 0
+  }, overrides || {});
+
+  if (!data.onTime || !data.offTime) { alert("Set both an ON and OFF time."); return; }
+
+  try {
+    const result = await apiPost({ action: "addSchedule", data });
+    if (result.status !== "ok") throw new Error(result.message);
+    refresh();
+  } catch (err) {
+    alert("Could not add schedule: " + err.message);
+  }
+}
+
+async function deleteSchedule(row) {
+  if (!confirm("Delete this schedule?")) return;
+  try {
+    const result = await apiPost({ action: "deleteSchedule", row });
+    if (result.status !== "ok") throw new Error(result.message);
+    refresh();
+  } catch (err) {
+    alert("Could not delete schedule: " + err.message);
+  }
+}
+
+function calculateCharge() {
+  const minPer = parseInt(document.getElementById("calcMinPer").value, 10);
+  const current = parseInt(document.getElementById("calcCurrent").value, 10);
+  const target = parseInt(document.getElementById("calcTarget").value, 10);
+  const onTime = document.getElementById("calcOnTime").value;
+
+  if (!onTime) { alert("Set an ON time first."); return; }
+  if (target <= current) { alert("Target must be greater than current."); return; }
+
+  const totalMinutes = (target - current) * minPer;
+  const [h, m] = onTime.split(":").map(Number);
+  const dt = new Date();
+  dt.setHours(h, m + totalMinutes, 0, 0);
+  const offTime = String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
+
+  const hrs = Math.floor(totalMinutes / 60);
+  const mins = totalMinutes % 60;
+  document.getElementById("calcResultText").textContent =
+    `Charges for ${hrs}h ${mins}m \u2192 turns off at ${offTime}.`;
+
+  calcResult = { onTime, offTime, current, target, minPer };
+}
+
+function exportSchedule() {
+  if (!calcResult) { alert("Calculate first."); return; }
+  addSchedule({
+    onTime: calcResult.onTime, offTime: calcResult.offTime, repeat: true,
+    startPercent: calcResult.current, targetPercent: calcResult.target, minutesPerPercent: calcResult.minPer
+  });
+}
+
+async function rebootDevice() {
+  if (!confirm("Reboot the device now?")) return;
+  try {
+    const result = await apiPost({ action: "reboot" });
+    if (result.status !== "ok") throw new Error(result.message);
+    alert("Reboot requested — it'll apply on the device's next check-in.");
+  } catch (err) {
+    alert("Could not request reboot: " + err.message);
+  }
+}
+
+async function pushOta() {
+  const otaUrl = document.getElementById("otaUrlInput").value.trim();
+  const otaVersion = document.getElementById("otaVersionInput").value.trim();
+  const toast = document.getElementById("otaToast");
+  if (!otaUrl || !otaVersion) { toast.className = "toast err"; toast.textContent = "Enter both fields."; return; }
+  try {
+    const result = await apiPost({ action: "pushOta", otaUrl, otaVersion });
+    if (result.status !== "ok") throw new Error(result.message);
+    toast.className = "toast ok";
+    toast.textContent = "Update pushed — the device will pick it up on its next check-in.";
+  } catch (err) {
+    toast.className = "toast err";
+    toast.textContent = "Could not push update: " + err.message;
+  }
+}
+
+async function clearOta() {
+  const toast = document.getElementById("otaToast");
+  try {
+    const result = await apiPost({ action: "clearOta" });
+    if (result.status !== "ok") throw new Error(result.message);
+    toast.className = "toast ok";
+    toast.textContent = "Pending update cancelled.";
+  } catch (err) {
+    toast.className = "toast err";
+    toast.textContent = "Could not cancel: " + err.message;
+  }
+}
+
+/* ---------------- Boot ---------------- */
+
+if (connection && connection.gasUrl && connection.sharedKey) {
+  showApp();
+  refresh();
+  setInterval(refresh, 5000);
+} else {
+  showGate();
+}
+</script>
+</body>
+</html>
