@@ -3,146 +3,222 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Smart Relay — Cloud Control</title>
+<title>LED Panel</title>
 <style>
   :root {
-    --bg: #f5f6f8; --surface: #ffffff; --ink: #1c1f26; --muted: #6b7280;
-    --line: #e5e7eb; --accent: #2563eb; --green: #16a34a; --red: #dc2626; --amber: #d97706;
-    --radius: 14px;
+    --bg: #0b0d10;
+    --panel: #14171c;
+    --panel-2: #191d23;
+    --line: #262b33;
+    --ink: #e7e9ec;
+    --muted: #7d8590;
+    --dim: #4a5058;
+    --amber: #f5a524;
+    --amber-dim: #6b4d17;
+    --green: #34d399;
+    --green-dim: #1c4a3a;
+    --red: #ef4444;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
   * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  body { margin: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); }
-  .wrap { max-width: 780px; margin: 0 auto; padding: 20px 16px 60px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .sub { color: var(--muted); font-size: 13px; margin: 0 0 20px; }
-  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; margin-bottom: 16px; }
-  .card h2 { font-size: 15px; margin: 0 0 14px; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 28px 18px 70px; }
+
+  .plate {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
+
+  .brandbar { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 20px; }
+  .brandbar h1 { font-family: var(--mono); font-size: 15px; letter-spacing: 0.1em; text-transform: uppercase; margin: 0; color: var(--ink); }
+  .brandbar .link { font-family: var(--mono); font-size: 11px; color: var(--dim); background: none; border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
+
+  /* Indicator */
+  .indicator-row { display: flex; align-items: center; gap: 20px; margin-bottom: 20px; }
+  .bulb {
+    width: 54px; height: 54px; border-radius: 50%; flex-shrink: 0;
+    background: #1a1e24; border: 2px solid var(--line);
+    transition: background 0.25s, box-shadow 0.25s, border-color 0.25s;
+  }
+  .bulb.on { background: var(--green); border-color: var(--green); box-shadow: 0 0 22px 4px rgba(52,211,153,0.55); }
+  .bulb.auto { background: #1a1e24; border-color: var(--amber); box-shadow: 0 0 14px 2px rgba(245,165,36,0.35); }
+  .indicator-text .mode { font-family: var(--mono); font-size: 18px; letter-spacing: 0.04em; margin: 0; }
+  .indicator-text .detail { font-family: var(--mono); font-size: 12px; color: var(--muted); margin: 4px 0 0; }
+
+  .segmented { display: flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .segmented button {
+    flex: 1; padding: 12px 8px; background: var(--panel-2); color: var(--muted);
+    border: none; border-right: 1px solid var(--line); font-family: var(--mono);
+    font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; cursor: pointer;
+  }
+  .segmented button:last-child { border-right: none; }
+  .segmented button.active-on { background: var(--green-dim); color: var(--green); }
+  .segmented button.active-off { background: #3a1414; color: var(--red); }
+  .segmented button.active-auto { background: var(--amber-dim); color: var(--amber); }
+
+  /* Readouts */
+  .readouts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .readout { background: var(--panel-2); padding: 12px 14px; }
+  .readout .k { font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin: 0 0 6px; }
+  .readout .v { font-family: var(--mono); font-size: 16px; color: var(--ink); margin: 0; }
+
+  /* Forms */
   .field { margin-bottom: 12px; }
-  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
-  .field input, .field select { width: 100%; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; font-size: 15px; background: var(--bg); }
+  .field label { display: block; font-family: var(--mono); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 6px; color: var(--ink); font-family: var(--sans); font-size: 14px;
+  }
+  .field input[type="checkbox"] { width: auto; }
   .row { display: flex; gap: 10px; flex-wrap: wrap; }
-  .row .field { flex: 1; min-width: 120px; }
-  button { font-size: 14px; font-weight: 600; border: none; border-radius: 10px; padding: 11px 16px; cursor: pointer; }
-  .btn-on { background: var(--green); color: white; }
-  .btn-off { background: var(--red); color: white; }
-  .btn-auto { background: var(--accent); color: white; }
-  .btn-neutral { background: var(--bg); color: var(--ink); border: 1px solid var(--line); }
-  .btn-danger-outline { background: white; color: var(--red); border: 1px solid var(--red); }
-  .status-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-  .status-row:last-child { border-bottom: none; }
-  .status-row .label { color: var(--muted); }
-  .pill { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 12px; font-weight: 700; }
-  .pill.on { background: #dcfce7; color: #166534; }
-  .pill.off { background: #fee2e2; color: #991b1b; }
-  .pill.auto { background: #dbeafe; color: #1e40af; }
-  .schedule-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
-  .schedule-item:last-child { border-bottom: none; }
-  .schedule-item .meta { color: var(--muted); font-size: 12px; }
-  .schedule-item button { padding: 6px 10px; font-size: 12px; }
-  .log-line { font-family: ui-monospace, monospace; font-size: 12px; color: var(--muted); padding: 3px 0; border-bottom: 1px dashed var(--line); }
+  .row .field { flex: 1; min-width: 130px; }
+
+  button.action {
+    font-family: var(--mono); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+    border-radius: 6px; padding: 11px 16px; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--ink);
+  }
+  button.action.primary { background: var(--amber-dim); color: var(--amber); border-color: var(--amber-dim); }
+  button.action.danger { background: #3a1414; color: var(--red); border-color: #522; }
+
+  /* Lists */
+  .sched-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .sched-item:last-child { border-bottom: none; }
+  .sched-item .times { font-family: var(--mono); font-size: 14px; }
+  .sched-item .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .sched-item button { padding: 6px 10px; font-size: 10px; }
+
+  .log-line { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .log-line:last-child { border-bottom: none; }
-  .empty { color: var(--muted); font-size: 13px; padding: 6px 0; }
-  .gate { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 10; }
-  .gate-card { max-width: 340px; width: 100%; }
-  .gate-card h1 { font-size: 20px; }
-  .toast { font-size: 12px; margin-top: 8px; min-height: 16px; }
+  .log-line .t { color: var(--dim); margin-right: 8px; }
+
+  .empty { font-family: var(--mono); font-size: 12px; color: var(--dim); padding: 6px 0; }
+  .toast { font-family: var(--mono); font-size: 11px; margin-top: 10px; min-height: 14px; }
   .toast.err { color: var(--red); }
   .toast.ok { color: var(--green); }
+  .helptext { font-size: 12px; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
+
+  .gate { position: fixed; inset: 0; background: var(--bg); display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 10; }
+  .gate-plate { max-width: 340px; width: 100%; }
 </style>
 </head>
 <body>
 
 <div id="gate" class="gate" style="display:none;">
-  <div class="gate-card card">
-    <h1>Connect</h1>
-    <div class="field"><label>Apps Script Web App URL</label><input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec"></div>
+  <div class="gate-plate plate">
+    <p class="eyebrow">Connect</p>
+    <div class="field"><label>Apps Script URL</label><input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec"></div>
     <div class="field"><label>Shared Key</label><input type="password" id="sharedKeyInput" placeholder="matches SHARED_KEY in Code.gs"></div>
-    <button class="btn-auto" id="gateConnectBtn" style="width:100%;">Connect</button>
+    <button class="action primary" id="gateConnectBtn" style="width:100%;">Connect</button>
     <div class="toast" id="gateToast"></div>
   </div>
 </div>
 
 <div id="app" class="wrap" style="display:none;">
-  <h1>Smart Relay</h1>
-  <p class="sub">Cloud control via Google Sheets. <span id="lastSeenText"></span></p>
 
-  <div class="card">
-    <h2>Relay</h2>
-    <p style="margin: 0 0 14px;">Current state: <span id="relayPill" class="pill off">—</span></p>
-    <div class="row">
-      <button class="btn-on" onclick="setDesiredState('ON')">Turn ON</button>
-      <button class="btn-off" onclick="setDesiredState('OFF')">Turn OFF</button>
-      <button class="btn-auto" onclick="setDesiredState('AUTO')">Auto (schedule)</button>
+  <div class="brandbar">
+    <h1>LED Panel</h1>
+    <button class="link" onclick="if(confirm('Disconnect and clear saved connection?')){localStorage.removeItem('relayControlConnection');location.reload();}">Disconnect</button>
+  </div>
+
+  <div class="plate">
+    <p class="eyebrow">Output</p>
+    <div class="indicator-row">
+      <div class="bulb" id="bulb"></div>
+      <div class="indicator-text">
+        <p class="mode" id="modeText">—</p>
+        <p class="detail" id="detailText">—</p>
+      </div>
+    </div>
+    <div class="segmented">
+      <button id="btnOn" onclick="setDesiredState('ON')">On</button>
+      <button id="btnOff" onclick="setDesiredState('OFF')">Off</button>
+      <button id="btnAuto" onclick="setDesiredState('AUTO')">Auto</button>
     </div>
   </div>
 
-  <div class="card">
-    <h2>Device status</h2>
-    <div class="status-row"><span class="label">WiFi signal</span><span id="statRSSI">—</span></div>
-    <div class="status-row"><span class="label">Uptime</span><span id="statUptime">—</span></div>
-    <div class="status-row"><span class="label">Voltage</span><span id="statVcc">—</span></div>
-    <div class="status-row"><span class="label">Firmware</span><span id="statFirmware">—</span></div>
-    <div class="status-row"><span class="label">Last check-in</span><span id="statLastSeen">—</span></div>
+  <div class="plate">
+    <p class="eyebrow">Telemetry</p>
+    <div class="readouts">
+      <div class="readout"><p class="k">WiFi</p><p class="v" id="statRSSI">—</p></div>
+      <div class="readout"><p class="k">Uptime</p><p class="v" id="statUptime">—</p></div>
+      <div class="readout"><p class="k">Voltage</p><p class="v" id="statVcc">—</p></div>
+      <div class="readout"><p class="k">Firmware</p><p class="v" id="statFirmware">—</p></div>
+      <div class="readout"><p class="k">Last check-in</p><p class="v" id="statLastSeen">—</p></div>
+      <div class="readout"><p class="k">Reboot</p><p class="v"><button class="action danger" onclick="rebootDevice()" style="padding:4px 10px;">Send</button></p></div>
+    </div>
   </div>
 
-  <div class="card">
-    <h2>Add schedule</h2>
+  <div class="plate">
+    <p class="eyebrow">Add schedule</p>
     <div class="row">
       <div class="field"><label>Date</label><input type="date" id="schedDate"></div>
-      <div class="field" style="display:flex; align-items:end;">
-        <label style="display:flex; align-items:center; gap:8px; font-weight:400; color:var(--ink); margin:0;">
-          <input type="checkbox" id="schedRepeat" style="width:auto;"> Repeat daily
+      <div class="field" style="display:flex; align-items:end; padding-bottom:10px;">
+        <label style="display:flex; align-items:center; gap:8px; text-transform:none; font-family:var(--sans); font-size:13px; color:var(--ink); margin:0;">
+          <input type="checkbox" id="schedRepeat"> Repeat daily
         </label>
       </div>
     </div>
     <div class="row">
-      <div class="field"><label>ON time</label><input type="time" id="schedOnTime"></div>
-      <div class="field"><label>OFF time</label><input type="time" id="schedOffTime"></div>
+      <div class="field"><label>On time</label><input type="time" id="schedOnTime"></div>
+      <div class="field"><label>Off time</label><input type="time" id="schedOffTime"></div>
     </div>
-    <button class="btn-auto" onclick="addSchedule()">Add Schedule</button>
+    <button class="action primary" onclick="addSchedule()">Add schedule</button>
   </div>
 
-  <div class="card">
-    <h2>Charging calculator</h2>
+  <div class="plate">
+    <p class="eyebrow">Charge calculator</p>
     <div class="row">
-      <div class="field"><label>Min per 1%</label><input type="number" id="calcMinPer" value="3"></div>
+      <div class="field"><label>Min / 1%</label><input type="number" id="calcMinPer" value="3"></div>
       <div class="field"><label>Current %</label><input type="number" id="calcCurrent" value="30"></div>
       <div class="field"><label>Target %</label><input type="number" id="calcTarget" value="90"></div>
     </div>
-    <div class="field"><label>ON time</label><input type="time" id="calcOnTime"></div>
+    <div class="field"><label>On time</label><input type="time" id="calcOnTime"></div>
     <div class="row">
-      <button class="btn-neutral" onclick="calculateCharge()">Calculate</button>
-      <button class="btn-auto" onclick="exportSchedule()">Export to Schedule</button>
+      <button class="action" onclick="calculateCharge()">Calculate</button>
+      <button class="action primary" onclick="exportSchedule()">Export to schedule</button>
     </div>
-    <p style="margin:12px 0 0; font-size:14px;" id="calcResultText"></p>
+    <p class="detail" id="calcResultText" style="margin-top:12px;"></p>
   </div>
 
-  <div class="card">
-    <h2>Schedules</h2>
+  <div class="plate">
+    <p class="eyebrow">Schedules</p>
     <div id="scheduleList"><p class="empty">Loading…</p></div>
   </div>
 
-  <div class="card">
-    <h2>Firmware update (OTA)</h2>
+  <div class="plate">
+    <p class="eyebrow">Firmware (OTA)</p>
     <div class="field"><label>Firmware .bin URL</label><input type="text" id="otaUrlInput" placeholder="https://.../firmware.bin"></div>
     <div class="field"><label>Version label</label><input type="text" id="otaVersionInput" placeholder="e.g. 1.1.0"></div>
     <div class="row">
-      <button class="btn-auto" onclick="pushOta()">Push Update</button>
-      <button class="btn-neutral" onclick="clearOta()">Cancel Pending Update</button>
+      <button class="action primary" onclick="pushOta()">Push update</button>
+      <button class="action" onclick="clearOta()">Cancel pending</button>
     </div>
     <p class="toast" id="otaToast"></p>
-    <p class="sub" style="margin-top:10px;">The device checks in roughly every 15 seconds and will download this file if its reported version doesn't match. Host the .bin somewhere reachable over plain internet (e.g. a GitHub release asset).</p>
+    <p class="helptext">Checked every ~15s. Host the .bin somewhere reachable over plain internet — a GitHub release asset works well.</p>
   </div>
 
-  <div class="card">
-    <h2>Logs</h2>
+  <div class="plate">
+    <p class="eyebrow">Log</p>
     <div id="logList"><p class="empty">Loading…</p></div>
   </div>
 
-  <div class="card">
-    <h2>Device control</h2>
-    <button class="btn-danger-outline" onclick="rebootDevice()">Reboot Device</button>
-  </div>
 </div>
 
 <script>
@@ -151,14 +227,10 @@ let connection = loadConnection();
 let calcResult = null;
 
 function loadConnection() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) { return null; }
+  try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
 }
-function saveConnection(c) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); } catch (e) {}
-}
+function saveConnection(c) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); } catch (e) {} }
 
 async function apiGet() {
   const url = connection.gasUrl + "?key=" + encodeURIComponent(connection.sharedKey);
@@ -168,21 +240,13 @@ async function apiGet() {
 async function apiPost(payload) {
   const body = Object.assign({ key: connection.sharedKey }, payload);
   const res = await fetch(connection.gasUrl, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(body)
+    method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body)
   });
   return res.json();
 }
 
-function showGate() {
-  document.getElementById("app").style.display = "none";
-  document.getElementById("gate").style.display = "flex";
-}
-function showApp() {
-  document.getElementById("gate").style.display = "none";
-  document.getElementById("app").style.display = "block";
-}
+function showGate() { document.getElementById("app").style.display = "none"; document.getElementById("gate").style.display = "flex"; }
+function showApp() { document.getElementById("gate").style.display = "none"; document.getElementById("app").style.display = "block"; }
 
 document.getElementById("gateConnectBtn").addEventListener("click", async () => {
   const gasUrl = document.getElementById("gasUrlInput").value.trim();
@@ -207,15 +271,12 @@ document.getElementById("gateConnectBtn").addEventListener("click", async () => 
 
 function fmtUptime(seconds) {
   seconds = Number(seconds) || 0;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = seconds % 60;
+  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
   return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
 }
 function fmtAgo(isoString) {
   if (!isoString) return "never";
-  const diffMs = Date.now() - new Date(isoString).getTime();
-  const diffSec = Math.round(diffMs / 1000);
+  const diffSec = Math.round((Date.now() - new Date(isoString).getTime()) / 1000);
   if (diffSec < 60) return diffSec + "s ago";
   if (diffSec < 3600) return Math.round(diffSec / 60) + "m ago";
   return Math.round(diffSec / 3600) + "h ago";
@@ -226,23 +287,38 @@ async function refresh() {
     const result = await apiGet();
     if (result.status !== "ok") throw new Error(result.message || "Refresh failed");
     render(result);
-  } catch (err) {
-    console.error(err);
-  }
+  } catch (err) { console.error(err); }
 }
 
 function render(result) {
   const d = result.device || {};
-
-  const pill = document.getElementById("relayPill");
   const desired = d.DesiredState || "AUTO";
   const actual = d.RelayState || "—";
+
+  const bulb = document.getElementById("bulb");
+  const modeText = document.getElementById("modeText");
+  const detailText = document.getElementById("detailText");
+
+  bulb.className = "bulb";
+  document.getElementById("btnOn").className = "";
+  document.getElementById("btnOff").className = "";
+  document.getElementById("btnAuto").className = "";
+
   if (desired === "AUTO") {
-    pill.className = "pill auto";
-    pill.textContent = "AUTO · relay " + actual;
+    document.getElementById("btnAuto").className = "active-auto";
+    modeText.textContent = "Auto";
+    detailText.textContent = "LED is currently " + actual.toLowerCase() + " (schedule)";
+    bulb.className = "bulb " + (actual === "ON" ? "on" : "auto");
+  } else if (desired === "ON") {
+    document.getElementById("btnOn").className = "active-on";
+    modeText.textContent = "On";
+    detailText.textContent = "Manual override";
+    bulb.className = "bulb on";
   } else {
-    pill.className = "pill " + (actual === "ON" ? "on" : "off");
-    pill.textContent = desired + " (manual)";
+    document.getElementById("btnOff").className = "active-off";
+    modeText.textContent = "Off";
+    detailText.textContent = "Manual override";
+    bulb.className = "bulb";
   }
 
   document.getElementById("statRSSI").textContent = d.WifiRSSI ? d.WifiRSSI + " dBm" : "—";
@@ -250,7 +326,6 @@ function render(result) {
   document.getElementById("statVcc").textContent = d.Vcc ? Number(d.Vcc).toFixed(2) + " V" : "—";
   document.getElementById("statFirmware").textContent = d.FirmwareVersion || "—";
   document.getElementById("statLastSeen").textContent = fmtAgo(d.LastSeen);
-  document.getElementById("lastSeenText").textContent = d.LastSeen ? "Last check-in " + fmtAgo(d.LastSeen) + "." : "";
 
   renderSchedules(result.schedules || []);
   renderLogs(result.logs || []);
@@ -262,11 +337,11 @@ function renderSchedules(schedules) {
   el.innerHTML = "";
   schedules.forEach(s => {
     const row = document.createElement("div");
-    row.className = "schedule-item";
+    row.className = "sched-item";
     const left = document.createElement("div");
-    left.innerHTML = `<div>${s.onTime} \u2192 ${s.offTime}</div><div class="meta">${s.repeat ? "Repeats daily" : s.date}</div>`;
+    left.innerHTML = `<div class="times">${s.onTime} \u2192 ${s.offTime}</div><div class="meta">${s.repeat ? "Repeats daily" : s.date}</div>`;
     const btn = document.createElement("button");
-    btn.className = "btn-danger-outline";
+    btn.className = "action danger";
     btn.textContent = "Delete";
     btn.addEventListener("click", () => deleteSchedule(s.row));
     row.appendChild(left);
@@ -277,13 +352,13 @@ function renderSchedules(schedules) {
 
 function renderLogs(logs) {
   const el = document.getElementById("logList");
-  if (logs.length === 0) { el.innerHTML = '<p class="empty">No logs yet.</p>'; return; }
+  if (logs.length === 0) { el.innerHTML = '<p class="empty">No log entries yet.</p>'; return; }
   el.innerHTML = "";
   logs.forEach(l => {
     const line = document.createElement("div");
     line.className = "log-line";
-    const t = l.time ? new Date(l.time).toLocaleString() : "";
-    line.textContent = `[${t}] ${l.message}`;
+    const t = l.time ? new Date(l.time).toLocaleTimeString() : "";
+    line.innerHTML = `<span class="t">${t}</span>${l.message}`;
     el.appendChild(line);
   });
 }
@@ -293,9 +368,7 @@ async function setDesiredState(state) {
     const result = await apiPost({ action: "setDesiredState", state });
     if (result.status !== "ok") throw new Error(result.message);
     refresh();
-  } catch (err) {
-    alert("Could not set state: " + err.message);
-  }
+  } catch (err) { alert("Could not set state: " + err.message); }
 }
 
 async function addSchedule(overrides) {
@@ -306,19 +379,16 @@ async function addSchedule(overrides) {
 
   const data = Object.assign({
     date: date || new Date().toISOString().slice(0, 10),
-    onTime, offTime, repeat,
-    startPercent: 0, targetPercent: 0, minutesPerPercent: 0
+    onTime, offTime, repeat, startPercent: 0, targetPercent: 0, minutesPerPercent: 0
   }, overrides || {});
 
-  if (!data.onTime || !data.offTime) { alert("Set both an ON and OFF time."); return; }
+  if (!data.onTime || !data.offTime) { alert("Set both an on time and off time."); return; }
 
   try {
     const result = await apiPost({ action: "addSchedule", data });
     if (result.status !== "ok") throw new Error(result.message);
     refresh();
-  } catch (err) {
-    alert("Could not add schedule: " + err.message);
-  }
+  } catch (err) { alert("Could not add schedule: " + err.message); }
 }
 
 async function deleteSchedule(row) {
@@ -327,9 +397,7 @@ async function deleteSchedule(row) {
     const result = await apiPost({ action: "deleteSchedule", row });
     if (result.status !== "ok") throw new Error(result.message);
     refresh();
-  } catch (err) {
-    alert("Could not delete schedule: " + err.message);
-  }
+  } catch (err) { alert("Could not delete schedule: " + err.message); }
 }
 
 function calculateCharge() {
@@ -338,7 +406,7 @@ function calculateCharge() {
   const target = parseInt(document.getElementById("calcTarget").value, 10);
   const onTime = document.getElementById("calcOnTime").value;
 
-  if (!onTime) { alert("Set an ON time first."); return; }
+  if (!onTime) { alert("Set an on time first."); return; }
   if (target <= current) { alert("Target must be greater than current."); return; }
 
   const totalMinutes = (target - current) * minPer;
@@ -347,11 +415,8 @@ function calculateCharge() {
   dt.setHours(h, m + totalMinutes, 0, 0);
   const offTime = String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
 
-  const hrs = Math.floor(totalMinutes / 60);
-  const mins = totalMinutes % 60;
-  document.getElementById("calcResultText").textContent =
-    `Charges for ${hrs}h ${mins}m \u2192 turns off at ${offTime}.`;
-
+  const hrs = Math.floor(totalMinutes / 60), mins = totalMinutes % 60;
+  document.getElementById("calcResultText").textContent = `${hrs}h ${mins}m \u2192 off at ${offTime}`;
   calcResult = { onTime, offTime, current, target, minPer };
 }
 
@@ -368,10 +433,8 @@ async function rebootDevice() {
   try {
     const result = await apiPost({ action: "reboot" });
     if (result.status !== "ok") throw new Error(result.message);
-    alert("Reboot requested — it'll apply on the device's next check-in.");
-  } catch (err) {
-    alert("Could not request reboot: " + err.message);
-  }
+    alert("Reboot requested — applies on the device's next check-in.");
+  } catch (err) { alert("Could not request reboot: " + err.message); }
 }
 
 async function pushOta() {
@@ -383,11 +446,8 @@ async function pushOta() {
     const result = await apiPost({ action: "pushOta", otaUrl, otaVersion });
     if (result.status !== "ok") throw new Error(result.message);
     toast.className = "toast ok";
-    toast.textContent = "Update pushed — the device will pick it up on its next check-in.";
-  } catch (err) {
-    toast.className = "toast err";
-    toast.textContent = "Could not push update: " + err.message;
-  }
+    toast.textContent = "Update pushed — picked up on next check-in.";
+  } catch (err) { toast.className = "toast err"; toast.textContent = "Could not push update: " + err.message; }
 }
 
 async function clearOta() {
@@ -397,13 +457,8 @@ async function clearOta() {
     if (result.status !== "ok") throw new Error(result.message);
     toast.className = "toast ok";
     toast.textContent = "Pending update cancelled.";
-  } catch (err) {
-    toast.className = "toast err";
-    toast.textContent = "Could not cancel: " + err.message;
-  }
+  } catch (err) { toast.className = "toast err"; toast.textContent = "Could not cancel: " + err.message; }
 }
-
-/* ---------------- Boot ---------------- */
 
 if (connection && connection.gasUrl && connection.sharedKey) {
   showApp();
