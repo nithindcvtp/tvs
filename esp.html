@@ -1,450 +1,655 @@
-/* ============================================================
-   Cloud-controlled Smart Relay — ESP32 firmware
-   ------------------------------------------------------------
-   Replaces the old local web-server sketch. This board no longer
-   hosts its own page — it polls a Google Apps Script Web App
-   (backed by a Google Sheet) for what to do, and reports its
-   status back. Control happens from the separate HTML page
-   (hosted on GitHub Pages) which talks to the same Apps Script.
+<!DOCTYPE html>
+<html lang="en" data-theme="graphite">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Relay Console</title>
+<style>
+  /* ============================================================
+     THEME TOKENS
+     Signature element across every theme: the relay switch itself
+     is drawn as a real three-position rocker (OFF / AUTO / ON)
+     rather than a row of flat buttons — because that's what this
+     page actually operates.
+     ============================================================ */
+  :root[data-theme="graphite"] {
+    --bg: #0a0b0d;
+    --bg-image: none;
+    --panel: #16181c;
+    --panel-2: #1c1f24;
+    --line: #292d33;
+    --ink: #eceef0;
+    --muted: #868c94;
+    --dim: #474d55;
+    --accent: #f2a53d;
+    --accent-ink: #1a1408;
+    --accent-dim: #3f2c11;
+    --ok: #3ddc97;
+    --ok-dim: #123829;
+    --bad: #ef5350;
+    --bad-dim: #391414;
+    --plate-radius: 10px;
+    --font-display: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-data: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --glow: 0 0 22px 3px;
+    --texture-opacity: 0;
+  }
 
-   REQUIRED LIBRARY (install via Library Manager):
-     - ArduinoJson (by Benoit Blanchon), version 6.x
+  :root[data-theme="blueprint"] {
+    --bg: #eef0e6;
+    --bg-image:
+      linear-gradient(rgba(47,95,168,0.07) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(47,95,168,0.07) 1px, transparent 1px);
+    --panel: #f6f7f0;
+    --panel-2: #eceee3;
+    --line: #c7cdb9;
+    --ink: #202a1f;
+    --muted: #5b6459;
+    --dim: #99a191;
+    --accent: #2f5fa8;
+    --accent-ink: #ffffff;
+    --accent-dim: #d7e0f0;
+    --ok: #2f7a55;
+    --ok-dim: #d9ecdf;
+    --bad: #b3401f;
+    --bad-dim: #f4ddd2;
+    --plate-radius: 3px;
+    --font-display: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-data: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --glow: 0 0 0 1px;
+    --texture-opacity: 1;
+  }
 
-   BOARD:
-     - Arduino core for ESP32 (this will NOT compile on ESP8266)
+  :root[data-theme="phosphor"] {
+    --bg: #040a06;
+    --bg-image: none;
+    --panel: #081410;
+    --panel-2: #0b1a14;
+    --line: #16352a;
+    --ink: #a9f5c4;
+    --muted: #4f9a72;
+    --dim: #235c40;
+    --accent: #4beb8f;
+    --accent-ink: #04140b;
+    --accent-dim: #103322;
+    --ok: #4beb8f;
+    --ok-dim: #103322;
+    --bad: #ff6a5b;
+    --bad-dim: #3a1610;
+    --plate-radius: 4px;
+    --font-display: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --font-body: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --font-data: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --glow: 0 0 16px 2px;
+    --texture-opacity: 1;
+  }
 
-   THINGS YOU MUST EDIT BELOW:
-     - WIFI_SSID / WIFI_PASS
-     - GAS_URL       (your Apps Script Web App's /exec URL)
-     - SHARED_KEY    (must match SHARED_KEY in Code.gs exactly)
-     - LED_PIN (only if your board's onboard LED isn't on GPIO2)
-     - VOLTAGE_PIN / VOLTAGE_DIVIDER_RATIO (only if you have a
-       battery voltage sense circuit — see readBatteryVoltage())
-   ============================================================ */
+  :root[data-theme="copper"] {
+    --bg: #120d0a;
+    --bg-image: none;
+    --panel: #1c1511;
+    --panel-2: #241a15;
+    --line: #3a2a20;
+    --ink: #f1e6da;
+    --muted: #a68a76;
+    --dim: #5e483a;
+    --accent: #d4874a;
+    --accent-ink: #1c0f05;
+    --accent-dim: #452c18;
+    --ok: #7fbf8f;
+    --ok-dim: #24382a;
+    --bad: #e2604a;
+    --bad-dim: #3d1f18;
+    --plate-radius: 8px;
+    --font-display: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    --font-data: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --glow: 0 0 18px 3px;
+    --texture-opacity: 1;
+  }
 
-#include <WiFi.h>
-#include <WiFiClientSecure.h>
-#include <HTTPClient.h>
-#include <HTTPUpdate.h>
-#include <Preferences.h>
-#include <ArduinoJson.h>
-#include <time.h>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg) var(--bg-image);
+    background-size: 22px 22px;
+    color: var(--ink);
+    font-family: var(--font-body);
+    transition: background 0.25s ease, color 0.25s ease;
+    min-height: 100vh;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 18px 70px; }
 
-/* ---------------- Configuration ---------------- */
+  /* Copper theme: faint circuit-trace divider used inside plates */
+  [data-theme="copper"] .plate::before {
+    content: "";
+    display: block;
+    height: 1px;
+    margin: -20px -20px 16px;
+    background:
+      repeating-linear-gradient(90deg, var(--accent-dim) 0 6px, transparent 6px 10px);
+    opacity: 0.6;
+  }
+  [data-theme="phosphor"] .wrap::after {
+    content: "";
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
+    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px);
+    mix-blend-mode: multiply;
+  }
 
-const char* WIFI_SSID = "TP-Link_01C0";
-const char* WIFI_PASS = "00000001";
+  .plate {
+    position: relative;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--plate-radius);
+    padding: 20px;
+    margin-bottom: 14px;
+  }
+  .eyebrow {
+    font-family: var(--font-display);
+    font-size: 11px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
 
-const char* GAS_URL    = "https://script.google.com/macros/s/AKfycbyet-apupV3m-WmecsLkZRVltk2AHy0avGyZx-qfPY9qDxtscr9jg81_krNse6DDQDg/exec";
-const char* SHARED_KEY = "f04IzE1JZj336ti7tCkFMLO32rza"; // must match Code.gs
+  .brandbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand .mark {
+    width: 30px; height: 30px; border-radius: 7px;
+    border: 1px solid var(--line); background: var(--panel-2);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--font-display); font-size: 13px; color: var(--accent);
+  }
+  .brandbar h1 { font-family: var(--font-display); font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; color: var(--ink); }
+  .brandbar .sub { font-family: var(--font-display); font-size: 10px; letter-spacing: 0.08em; color: var(--dim); margin: 2px 0 0; }
 
-#define FIRMWARE_VERSION "1.0.0" // bump this whenever you push a new .bin for OTA to detect it
+  .headctrls { display: flex; align-items: center; gap: 10px; }
+  .theme-select {
+    font-family: var(--font-display); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
+    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
+    padding: 7px 26px 7px 10px; cursor: pointer; appearance: none;
+    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+    background-position: calc(100% - 13px) center, calc(100% - 8px) center;
+    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  }
+  .link { font-family: var(--font-display); font-size: 10px; color: var(--dim); background: none; border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; letter-spacing: 0.06em; text-transform: uppercase; }
 
-// Most ESP32 dev boards have a single onboard LED on GPIO2 — change this
-// if yours is different (check your board's silkscreen/datasheet).
-const int LED_PIN = 17; // relay control pin (GPIO17)
+  /* ---------------- Relay switch (signature element) ---------------- */
+  .switch-row { display: flex; align-items: center; gap: 18px; margin-bottom: 6px; }
+  .lamp {
+    width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
+    background: var(--panel-2); border: 1px solid var(--line);
+    transition: background 0.25s, box-shadow 0.25s;
+  }
+  .lamp.energized { background: var(--ok); box-shadow: var(--glow) color-mix(in srgb, var(--ok) 70%, transparent); }
+  .lamp.waiting { background: var(--accent); box-shadow: var(--glow) color-mix(in srgb, var(--accent) 55%, transparent); }
 
-// Only relevant if you have a resistor-divider from a battery into an ADC pin.
-// ESP32 ADC is non-linear near the rails — treat this as a rough estimate and
-// calibrate VOLTAGE_DIVIDER_RATIO against a multimeter reading.
-const int VOLTAGE_PIN = 34;
-const float VOLTAGE_DIVIDER_RATIO = 2.0;
+  .switch-meta .mode { font-family: var(--font-display); font-size: 18px; letter-spacing: 0.04em; margin: 0; }
+  .switch-meta .detail { font-family: var(--font-display); font-size: 11px; color: var(--muted); margin: 4px 0 0; }
 
-const unsigned long POLL_INTERVAL_MS = 15000; // how often the ESP checks in with the Sheet
-const long TIME_OFFSET_SECONDS = 19800;       // IST = UTC+5:30; change for your timezone
+  .rocker {
+    position: relative;
+    display: grid; grid-template-columns: repeat(3, 1fr);
+    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 4px; margin-top: 16px; height: 46px;
+  }
+  .rocker .knob {
+    position: absolute; top: 4px; bottom: 4px; left: 4px;
+    width: calc(33.333% - 4px);
+    border-radius: 999px;
+    background: var(--accent-dim);
+    transition: transform 0.22s cubic-bezier(.4,0,.2,1), background 0.22s;
+    z-index: 0;
+  }
+  .rocker.pos-off .knob { transform: translateX(0%); background: var(--bad-dim); }
+  .rocker.pos-auto .knob { transform: translateX(100%); background: var(--accent-dim); }
+  .rocker.pos-on .knob { transform: translateX(200%); background: var(--ok-dim); }
+  .rocker button {
+    position: relative; z-index: 1;
+    background: none; border: none; cursor: pointer;
+    font-family: var(--font-display); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--muted); padding: 0;
+  }
+  .rocker.pos-off button[data-v="OFF"],
+  .rocker.pos-auto button[data-v="AUTO"],
+  .rocker.pos-on button[data-v="ON"] { color: var(--ink); font-weight: 600; }
 
-#define MAX_SCHEDULES 10
+  /* ---------------- Readouts (gauge plates) ---------------- */
+  .readouts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
+  .readout { background: var(--panel-2); padding: 12px 14px; }
+  .readout .k { font-family: var(--font-display); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin: 0 0 6px; }
+  .readout .v { font-family: var(--font-data); font-size: 16px; color: var(--ink); margin: 0; }
 
-struct Schedule {
-  char date[11];
-  char onTime[6];
-  char offTime[6];
-  bool repeat;
-  int startPercent;
-  int targetPercent;
-  int minutesPerPercent;
-};
+  /* ---------------- Forms ---------------- */
+  .field { margin-bottom: 12px; }
+  .field label { display: block; font-family: var(--font-display); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
+  .field input {
+    width: 100%; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line);
+    border-radius: 6px; color: var(--ink); font-family: var(--font-body); font-size: 14px;
+  }
+  .field input:focus, .theme-select:focus, button:focus-visible {
+    outline: 2px solid var(--accent); outline-offset: 1px;
+  }
+  .field input[type="checkbox"] { width: auto; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .row .field { flex: 1; min-width: 130px; }
 
-Schedule schedules[MAX_SCHEDULES];
-int numSchedules = 0;
-long schedulesVersion = -1; // -1 forces a fetch on first successful poll
+  button.action {
+    font-family: var(--font-display); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
+    border-radius: 6px; padding: 11px 16px; cursor: pointer; border: 1px solid var(--line);
+    background: var(--panel-2); color: var(--ink);
+  }
+  button.action.primary { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-dim); }
+  button.action.danger { background: var(--bad-dim); color: var(--bad); border-color: var(--bad-dim); }
 
-bool ledOn = false;
-bool manualOverride = false; // true while cloud has set ON/OFF instead of AUTO
-int skipUntilMin = -1;
+  /* ---------------- Lists ---------------- */
+  .sched-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .sched-item:last-child { border-bottom: none; }
+  .sched-item .times { font-family: var(--font-data); font-size: 14px; }
+  .sched-item .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
+  .sched-item button { padding: 6px 10px; font-size: 10px; }
 
-Preferences prefs;
+  .log-line { font-family: var(--font-data); font-size: 11px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .log-line:last-child { border-bottom: none; }
+  .log-line .t { color: var(--dim); margin-right: 8px; }
 
-unsigned long lastPoll = 0;
+  .empty { font-family: var(--font-display); font-size: 12px; color: var(--dim); padding: 6px 0; }
+  .toast { font-family: var(--font-display); font-size: 11px; margin-top: 10px; min-height: 14px; }
+  .toast.err { color: var(--bad); }
+  .toast.ok { color: var(--ok); }
+  .helptext { font-size: 12px; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
 
-/* ---------------- Forward declarations ---------------- */
+  .gate { position: fixed; inset: 0; background: var(--bg) var(--bg-image); background-size: 22px 22px; display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 10; }
+  .gate-plate { max-width: 340px; width: 100%; }
+</style>
+</head>
+<body>
 
-void connectWiFi();
-void pollServer();
-void applyDesiredState(const String& state);
-void fetchSchedules(long newVersion);
-void syncTimeFromServerString(const char* iso);
-void checkSchedules();
-void addLog(const String& msg);
-int timeToMinutes(const char* t);
-int calculateBatteryPercent(int startPercent, int minutesPerPercent, int onMin);
-float readBatteryVoltage();
-void performOta(const char* url);
-void saveSchedulesToFlash();
-void loadSchedulesFromFlash();
-String httpsPost(const String& url, const String& body);
-String httpsGet(const String& url);
-int nowHour(); int nowMinute(); int nowSecond();
-int nowDay(); int nowMonth(); int nowYear();
+<div id="gate" class="gate" style="display:none;">
+  <div class="gate-plate plate">
+    <p class="eyebrow">Connect</p>
+    <div class="field"><label>Apps Script URL</label><input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec"></div>
+    <div class="field"><label>Shared Key</label><input type="password" id="sharedKeyInput" placeholder="matches SHARED_KEY in Code.gs"></div>
+    <button class="action primary" id="gateConnectBtn" style="width:100%;">Connect</button>
+    <div class="toast" id="gateToast"></div>
+  </div>
+</div>
 
-/* ---------------- Setup ---------------- */
+<div id="app" class="wrap" style="display:none;">
 
-void setup() {
-  Serial.begin(115200);
-  delay(200);
+  <div class="brandbar">
+    <div class="brand">
+      <div class="mark">R</div>
+      <div>
+        <h1>Relay Console</h1>
+        <p class="sub">Cloud-controlled switch</p>
+      </div>
+    </div>
+    <div class="headctrls">
+      <select class="theme-select" id="themeSelect" title="Theme">
+        <option value="graphite">Graphite</option>
+        <option value="blueprint">Blueprint</option>
+        <option value="phosphor">Phosphor</option>
+        <option value="copper">Copper</option>
+      </select>
+      <button class="link" onclick="if(confirm('Disconnect and clear saved connection?')){localStorage.removeItem('relayControlConnection');location.reload();}">Disconnect</button>
+    </div>
+  </div>
 
-  pinMode(LED_PIN, OUTPUT);
-  digitalWrite(LED_PIN, LOW);
+  <div class="plate">
+    <p class="eyebrow">Output</p>
+    <div class="switch-row">
+      <div class="lamp" id="bulb"></div>
+      <div class="switch-meta">
+        <p class="mode" id="modeText">—</p>
+        <p class="detail" id="detailText">—</p>
+      </div>
+    </div>
+    <div class="rocker" id="rocker">
+      <div class="knob"></div>
+      <button data-v="OFF" onclick="setDesiredState('OFF')">Off</button>
+      <button data-v="AUTO" onclick="setDesiredState('AUTO')">Auto</button>
+      <button data-v="ON" onclick="setDesiredState('ON')">On</button>
+    </div>
+  </div>
 
-  loadSchedulesFromFlash();
+  <div class="plate">
+    <p class="eyebrow">Telemetry</p>
+    <div class="readouts">
+      <div class="readout"><p class="k">WiFi</p><p class="v" id="statRSSI">—</p></div>
+      <div class="readout"><p class="k">Uptime</p><p class="v" id="statUptime">—</p></div>
+      <div class="readout"><p class="k">Voltage</p><p class="v" id="statVcc">—</p></div>
+      <div class="readout"><p class="k">Firmware</p><p class="v" id="statFirmware">—</p></div>
+      <div class="readout"><p class="k">Last check-in</p><p class="v" id="statLastSeen">—</p></div>
+      <div class="readout"><p class="k">Reboot</p><p class="v"><button class="action danger" onclick="rebootDevice()" style="padding:4px 10px;">Send</button></p></div>
+    </div>
+  </div>
 
-  connectWiFi();
+  <div class="plate">
+    <p class="eyebrow">Add schedule</p>
+    <div class="row">
+      <div class="field"><label>Date</label><input type="date" id="schedDate"></div>
+      <div class="field" style="display:flex; align-items:end; padding-bottom:10px;">
+        <label style="display:flex; align-items:center; gap:8px; text-transform:none; font-family:var(--font-body); font-size:13px; color:var(--ink); margin:0;">
+          <input type="checkbox" id="schedRepeat"> Repeat daily
+        </label>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>On time</label><input type="time" id="schedOnTime"></div>
+      <div class="field"><label>Off time</label><input type="time" id="schedOffTime"></div>
+    </div>
+    <button class="action primary" onclick="addSchedule()">Add schedule</button>
+  </div>
 
-  Serial.println("Setup complete. Polling the cloud every " + String(POLL_INTERVAL_MS / 1000) + "s.");
+  <div class="plate">
+    <p class="eyebrow">Charge calculator</p>
+    <div class="row">
+      <div class="field"><label>Min / 1%</label><input type="number" id="calcMinPer" value="3"></div>
+      <div class="field"><label>Current %</label><input type="number" id="calcCurrent" value="30"></div>
+      <div class="field"><label>Target %</label><input type="number" id="calcTarget" value="90"></div>
+    </div>
+    <div class="field"><label>On time</label><input type="time" id="calcOnTime"></div>
+    <div class="row">
+      <button class="action" onclick="calculateCharge()">Calculate</button>
+      <button class="action primary" onclick="exportSchedule()">Export to schedule</button>
+    </div>
+    <p class="detail" id="calcResultText" style="margin-top:12px;"></p>
+  </div>
+
+  <div class="plate">
+    <p class="eyebrow">Schedules</p>
+    <div id="scheduleList"><p class="empty">Loading…</p></div>
+  </div>
+
+  <div class="plate">
+    <p class="eyebrow">Firmware (OTA)</p>
+    <div class="field"><label>Firmware .bin URL</label><input type="text" id="otaUrlInput" placeholder="https://.../firmware.bin"></div>
+    <div class="field"><label>Version label</label><input type="text" id="otaVersionInput" placeholder="e.g. 1.1.0"></div>
+    <div class="row">
+      <button class="action primary" onclick="pushOta()">Push update</button>
+      <button class="action" onclick="clearOta()">Cancel pending</button>
+    </div>
+    <p class="toast" id="otaToast"></p>
+    <p class="helptext">Checked every ~15s. Host the .bin somewhere reachable over plain internet — a GitHub release asset works well.</p>
+  </div>
+
+  <div class="plate">
+    <p class="eyebrow">Log</p>
+    <div id="logList"><p class="empty">Loading…</p></div>
+  </div>
+
+</div>
+
+<script>
+const STORAGE_KEY = "relayControlConnection";
+const THEME_KEY = "relayControlTheme";
+let connection = loadConnection();
+let calcResult = null;
+
+/* ---------------- Theme ---------------- */
+function applyTheme(name) {
+  document.documentElement.setAttribute("data-theme", name);
+  const sel = document.getElementById("themeSelect");
+  if (sel) sel.value = name;
+}
+function loadTheme() {
+  try { return localStorage.getItem(THEME_KEY) || "graphite"; } catch (e) { return "graphite"; }
+}
+applyTheme(loadTheme());
+document.addEventListener("DOMContentLoaded", () => {
+  const sel = document.getElementById("themeSelect");
+  sel.value = loadTheme();
+  sel.addEventListener("change", () => {
+    applyTheme(sel.value);
+    try { localStorage.setItem(THEME_KEY, sel.value); } catch (e) {}
+  });
+});
+
+function loadConnection() {
+  try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; }
+  catch (e) { return null; }
+}
+function saveConnection(c) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); } catch (e) {} }
+
+async function apiGet() {
+  const url = connection.gasUrl + "?key=" + encodeURIComponent(connection.sharedKey);
+  const res = await fetch(url);
+  return res.json();
+}
+async function apiPost(payload) {
+  const body = Object.assign({ key: connection.sharedKey }, payload);
+  const res = await fetch(connection.gasUrl, {
+    method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body)
+  });
+  return res.json();
 }
 
-/* ---------------- Main loop ---------------- */
+function showGate() { document.getElementById("app").style.display = "none"; document.getElementById("gate").style.display = "flex"; }
+function showApp() { document.getElementById("gate").style.display = "none"; document.getElementById("app").style.display = "block"; }
 
-void loop() {
-  if (WiFi.status() != WL_CONNECTED) {
-    connectWiFi();
-  }
+document.getElementById("gateConnectBtn").addEventListener("click", async () => {
+  const gasUrl = document.getElementById("gasUrlInput").value.trim();
+  const sharedKey = document.getElementById("sharedKeyInput").value.trim();
+  const toast = document.getElementById("gateToast");
+  if (!gasUrl || !sharedKey) { toast.className = "toast err"; toast.textContent = "Enter both fields."; return; }
 
-  if (millis() - lastPoll >= POLL_INTERVAL_MS) {
-    lastPoll = millis();
-    pollServer();
+  connection = { gasUrl, sharedKey };
+  toast.className = "toast"; toast.textContent = "Connecting…";
+  try {
+    const result = await apiGet();
+    if (result.status !== "ok") throw new Error(result.message || "Could not connect.");
+    saveConnection(connection);
+    showApp();
+    refresh();
+    setInterval(refresh, 5000);
+  } catch (err) {
+    toast.className = "toast err";
+    toast.textContent = "Could not connect: " + err.message;
   }
+});
 
-  if (!manualOverride) {
-    checkSchedules();
-  }
+function fmtUptime(seconds) {
+  seconds = Number(seconds) || 0;
+  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
+  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
+}
+function fmtAgo(isoString) {
+  if (!isoString) return "never";
+  const diffSec = Math.round((Date.now() - new Date(isoString).getTime()) / 1000);
+  if (diffSec < 60) return diffSec + "s ago";
+  if (diffSec < 3600) return Math.round(diffSec / 60) + "m ago";
+  return Math.round(diffSec / 3600) + "h ago";
 }
 
-/* ---------------- WiFi ---------------- */
+async function refresh() {
+  try {
+    const result = await apiGet();
+    if (result.status !== "ok") throw new Error(result.message || "Refresh failed");
+    render(result);
+  } catch (err) { console.error(err); }
+}
 
-void connectWiFi() {
-  if (WiFi.status() == WL_CONNECTED) return;
+function render(result) {
+  const d = result.device || {};
+  const desired = d.DesiredState || "AUTO";
+  const actual = d.RelayState || "—";
 
-  Serial.print("Connecting to WiFi");
-  WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASS);
+  const bulb = document.getElementById("bulb");
+  const modeText = document.getElementById("modeText");
+  const detailText = document.getElementById("detailText");
+  const rocker = document.getElementById("rocker");
 
-  int attempts = 0;
-  while (WiFi.status() != WL_CONNECTED && attempts < 40) {
-    delay(500);
-    Serial.print(".");
-    attempts++;
-  }
-  Serial.println();
+  rocker.className = "rocker pos-" + desired.toLowerCase();
 
-  if (WiFi.status() == WL_CONNECTED) {
-    Serial.println("WiFi connected: " + WiFi.localIP().toString());
+  if (desired === "AUTO") {
+    modeText.textContent = "Auto";
+    detailText.textContent = "Relay is currently " + actual.toLowerCase() + " (schedule)";
+    bulb.className = "lamp " + (actual === "ON" ? "energized" : "");
+  } else if (desired === "ON") {
+    modeText.textContent = "On";
+    detailText.textContent = "Manual override";
+    bulb.className = "lamp energized";
   } else {
-    Serial.println("WiFi connect failed — will retry in loop().");
-  }
-}
-
-/* ---------------- Cloud communication ---------------- */
-
-String httpsPost(const String& url, const String& body) {
-  WiFiClientSecure client;
-  client.setInsecure(); // skips TLS cert validation — fine for a hobby project talking to Google's own domain,
-                         // but note this doesn't verify you're really talking to script.google.com
-  HTTPClient http;
-  if (!http.begin(client, url)) return "";
-  http.addHeader("Content-Type", "text/plain"); // Apps Script reads e.postData.contents regardless of content-type
-  int code = http.POST(body);
-  String response = "";
-  if (code > 0) response = http.getString();
-  else Serial.println("POST failed, code: " + String(code));
-  http.end();
-  return response;
-}
-
-String httpsGet(const String& url) {
-  WiFiClientSecure client;
-  client.setInsecure();
-  HTTPClient http;
-  if (!http.begin(client, url)) return "";
-  int code = http.GET();
-  String response = "";
-  if (code > 0) response = http.getString();
-  else Serial.println("GET failed, code: " + String(code));
-  http.end();
-  return response;
-}
-
-void pollServer() {
-  if (WiFi.status() != WL_CONNECTED) return;
-
-  StaticJsonDocument<256> reqDoc;
-  reqDoc["key"] = SHARED_KEY;
-  reqDoc["action"] = "poll";
-  reqDoc["relayState"] = ledOn ? "ON" : "OFF";
-  reqDoc["uptime"] = millis() / 1000;
-  reqDoc["vcc"] = readBatteryVoltage();
-  reqDoc["wifiRSSI"] = WiFi.RSSI();
-  reqDoc["firmwareVersion"] = FIRMWARE_VERSION;
-  String body;
-  serializeJson(reqDoc, body);
-
-  String response = httpsPost(GAS_URL, body);
-  if (response.length() == 0) {
-    Serial.println("Poll: no response.");
-    return;
+    modeText.textContent = "Off";
+    detailText.textContent = "Manual override";
+    bulb.className = "lamp";
   }
 
-  StaticJsonDocument<512> respDoc;
-  DeserializationError err = deserializeJson(respDoc, response);
-  if (err) {
-    Serial.println("Poll: JSON parse error.");
-    return;
-  }
-  if (strcmp(respDoc["status"] | "", "ok") != 0) return;
+  document.getElementById("statRSSI").textContent = d.WifiRSSI ? d.WifiRSSI + " dBm" : "—";
+  document.getElementById("statUptime").textContent = d.Uptime ? fmtUptime(d.Uptime) : "—";
+  document.getElementById("statVcc").textContent = d.Vcc ? Number(d.Vcc).toFixed(2) + " V" : "—";
+  document.getElementById("statFirmware").textContent = d.FirmwareVersion || "—";
+  document.getElementById("statLastSeen").textContent = fmtAgo(d.LastSeen);
 
-  applyDesiredState(respDoc["desiredState"] | "AUTO");
-
-  long serverSchedulesVersion = respDoc["schedulesVersion"] | schedulesVersion;
-  if (serverSchedulesVersion != schedulesVersion) {
-    fetchSchedules(serverSchedulesVersion);
-  }
-
-  const char* serverTime = respDoc["serverTime"];
-  if (serverTime) syncTimeFromServerString(serverTime);
-
-  const char* command = respDoc["command"];
-  if (command && strlen(command) > 0 && strcmp(command, "REBOOT") == 0) {
-    addLog("Cloud requested reboot");
-    delay(300);
-    ESP.restart();
-  }
-
-  const char* otaUrl = respDoc["otaUrl"];
-  const char* otaVersion = respDoc["otaVersion"];
-  if (otaUrl && strlen(otaUrl) > 0 && otaVersion && strcmp(otaVersion, FIRMWARE_VERSION) != 0) {
-    performOta(otaUrl);
-  }
+  renderSchedules(result.schedules || []);
+  renderLogs(result.logs || []);
 }
 
-void applyDesiredState(const String& state) {
-  if (state == "ON") {
-    if (!ledOn) {
-      ledOn = true;
-      digitalWrite(LED_PIN, HIGH);
-      addLog("Cloud: Manual ON");
-    }
-    manualOverride = true;
-  } else if (state == "OFF") {
-    if (ledOn) {
-      ledOn = false;
-      digitalWrite(LED_PIN, LOW);
-      addLog("Cloud: Manual OFF");
-    }
-    manualOverride = true;
-  } else { // AUTO
-    if (manualOverride) addLog("Cloud: Back to AUTO (schedule control)");
-    manualOverride = false;
-  }
+function renderSchedules(schedules) {
+  const el = document.getElementById("scheduleList");
+  if (schedules.length === 0) { el.innerHTML = '<p class="empty">No schedules yet.</p>'; return; }
+  el.innerHTML = "";
+  schedules.forEach(s => {
+    const row = document.createElement("div");
+    row.className = "sched-item";
+    const left = document.createElement("div");
+    left.innerHTML = `<div class="times">${s.onTime} \u2192 ${s.offTime}</div><div class="meta">${s.repeat ? "Repeats daily" : s.date}</div>`;
+    const btn = document.createElement("button");
+    btn.className = "action danger";
+    btn.textContent = "Delete";
+    btn.addEventListener("click", () => deleteSchedule(s.row));
+    row.appendChild(left);
+    row.appendChild(btn);
+    el.appendChild(row);
+  });
 }
 
-void fetchSchedules(long newVersion) {
-  String url = String(GAS_URL) + "?key=" + SHARED_KEY;
-  String response = httpsGet(url);
-  if (response.length() == 0) {
-    Serial.println("Fetch schedules: no response.");
-    return;
-  }
-
-  DynamicJsonDocument doc(4096);
-  DeserializationError err = deserializeJson(doc, response);
-  if (err) {
-    Serial.println("Fetch schedules: JSON parse error.");
-    return;
-  }
-
-  JsonArray arr = doc["schedules"].as<JsonArray>();
-  numSchedules = 0;
-  for (JsonObject item : arr) {
-    if (numSchedules >= MAX_SCHEDULES) break;
-    Schedule &s = schedules[numSchedules];
-    strncpy(s.date, item["date"] | "", sizeof(s.date) - 1);
-    strncpy(s.onTime, item["onTime"] | "", sizeof(s.onTime) - 1);
-    strncpy(s.offTime, item["offTime"] | "", sizeof(s.offTime) - 1);
-    s.repeat = item["repeat"] | false;
-    s.startPercent = item["startPercent"] | 0;
-    s.targetPercent = item["targetPercent"] | 0;
-    s.minutesPerPercent = item["minutesPerPercent"] | 0;
-    numSchedules++;
-  }
-  schedulesVersion = newVersion;
-  saveSchedulesToFlash();
-  addLog("Schedules synced (" + String(numSchedules) + " total)");
+function renderLogs(logs) {
+  const el = document.getElementById("logList");
+  if (logs.length === 0) { el.innerHTML = '<p class="empty">No log entries yet.</p>'; return; }
+  el.innerHTML = "";
+  logs.forEach(l => {
+    const line = document.createElement("div");
+    line.className = "log-line";
+    const t = l.time ? new Date(l.time).toLocaleTimeString() : "";
+    line.innerHTML = `<span class="t">${t}</span>${l.message}`;
+    el.appendChild(line);
+  });
 }
 
-/* ---------------- Time ----------------
-   The Sheet's server time (always accurate, no local NTP needed)
-   is applied on every successful poll. TIME_OFFSET_SECONDS shifts
-   it to local time so the hour()/minute()-style helpers below
-   read local wall-clock time directly. */
-
-void syncTimeFromServerString(const char* iso) {
-  int y, mo, d, h, mi, s;
-  if (sscanf(iso, "%d-%d-%dT%d:%d:%d", &y, &mo, &d, &h, &mi, &s) != 6) return;
-
-  struct tm tmStruct = {};
-  tmStruct.tm_year = y - 1900;
-  tmStruct.tm_mon = mo - 1;
-  tmStruct.tm_mday = d;
-  tmStruct.tm_hour = h;
-  tmStruct.tm_min = mi;
-  tmStruct.tm_sec = s;
-
-  time_t utcEpoch = mktime(&tmStruct); // no TZ configured, so this is treated as UTC
-  time_t localEpoch = utcEpoch + TIME_OFFSET_SECONDS;
-  struct timeval tv = { localEpoch, 0 };
-  settimeofday(&tv, nullptr);
+async function setDesiredState(state) {
+  try {
+    const result = await apiPost({ action: "setDesiredState", state });
+    if (result.status !== "ok") throw new Error(result.message);
+    refresh();
+  } catch (err) { alert("Could not set state: " + err.message); }
 }
 
-int nowHour()   { time_t t = time(nullptr); return localtime(&t)->tm_hour; }
-int nowMinute() { time_t t = time(nullptr); return localtime(&t)->tm_min; }
-int nowSecond() { time_t t = time(nullptr); return localtime(&t)->tm_sec; }
-int nowDay()    { time_t t = time(nullptr); return localtime(&t)->tm_mday; }
-int nowMonth()  { time_t t = time(nullptr); return localtime(&t)->tm_mon + 1; }
-int nowYear()   { time_t t = time(nullptr); return localtime(&t)->tm_year + 1900; }
+async function addSchedule(overrides) {
+  const date = document.getElementById("schedDate").value;
+  const onTime = document.getElementById("schedOnTime").value;
+  const offTime = document.getElementById("schedOffTime").value;
+  const repeat = document.getElementById("schedRepeat").checked;
 
-/* ---------------- Schedule evaluation (same logic as the original sketch) ---------------- */
+  const data = Object.assign({
+    date: date || new Date().toISOString().slice(0, 10),
+    onTime, offTime, repeat, startPercent: 0, targetPercent: 0, minutesPerPercent: 0
+  }, overrides || {});
 
-int timeToMinutes(const char* t) {
-  if (strlen(t) < 5) return 0;
-  int h = (t[0] - '0') * 10 + (t[1] - '0');
-  int m = (t[3] - '0') * 10 + (t[4] - '0');
-  return h * 60 + m;
+  if (!data.onTime || !data.offTime) { alert("Set both an on time and off time."); return; }
+
+  try {
+    const result = await apiPost({ action: "addSchedule", data });
+    if (result.status !== "ok") throw new Error(result.message);
+    refresh();
+  } catch (err) { alert("Could not add schedule: " + err.message); }
 }
 
-int calculateBatteryPercent(int startPercent, int minutesPerPercent, int onMin) {
-  int nowMin = nowHour() * 60 + nowMinute();
-  int elapsed = nowMin - onMin;
-  if (elapsed < 0) elapsed = 0;
-  int percentIncrease = (minutesPerPercent > 0) ? elapsed / minutesPerPercent : 0;
-  return startPercent + percentIncrease;
+async function deleteSchedule(row) {
+  if (!confirm("Delete this schedule?")) return;
+  try {
+    const result = await apiPost({ action: "deleteSchedule", row });
+    if (result.status !== "ok") throw new Error(result.message);
+    refresh();
+  } catch (err) { alert("Could not delete schedule: " + err.message); }
 }
 
-void checkSchedules() {
-  if (nowYear() < 2020) return; // time not synced yet
+function calculateCharge() {
+  const minPer = parseInt(document.getElementById("calcMinPer").value, 10);
+  const current = parseInt(document.getElementById("calcCurrent").value, 10);
+  const target = parseInt(document.getElementById("calcTarget").value, 10);
+  const onTime = document.getElementById("calcOnTime").value;
 
-  int nowMin = nowHour() * 60 + nowMinute();
+  if (!onTime) { alert("Set an on time first."); return; }
+  if (target <= current) { alert("Target must be greater than current."); return; }
 
-  if (skipUntilMin != -1) {
-    if (nowMin < skipUntilMin) return;
-    else skipUntilMin = -1;
-  }
+  const totalMinutes = (target - current) * minPer;
+  const [h, m] = onTime.split(":").map(Number);
+  const dt = new Date();
+  dt.setHours(h, m + totalMinutes, 0, 0);
+  const offTime = String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
 
-  for (int i = 0; i < numSchedules; i++) {
-    Schedule &s = schedules[i];
-    bool ok = s.repeat;
-    if (!s.repeat) {
-      int sy = atoi(s.date);
-      int sm = atoi(s.date + 5);
-      int sd = atoi(s.date + 8);
-      ok = (nowYear() == sy && nowMonth() == sm && nowDay() == sd);
-    }
-    if (!ok) continue;
-
-    int onMin = timeToMinutes(s.onTime);
-    int offMin = timeToMinutes(s.offTime);
-    bool shouldBeOn = (onMin < offMin)
-      ? (nowMin >= onMin && nowMin < offMin)
-      : (nowMin >= onMin || nowMin < offMin);
-
-    if (shouldBeOn && !ledOn) {
-      ledOn = true;
-      digitalWrite(LED_PIN, HIGH);
-      addLog("Schedule ON");
-    }
-    if (!shouldBeOn && ledOn) {
-      ledOn = false;
-      digitalWrite(LED_PIN, LOW);
-      addLog("Schedule OFF");
-    }
-  }
+  const hrs = Math.floor(totalMinutes / 60), mins = totalMinutes % 60;
+  document.getElementById("calcResultText").textContent = `${hrs}h ${mins}m \u2192 off at ${offTime}`;
+  calcResult = { onTime, offTime, current, target, minPer };
 }
 
-/* ---------------- Logging (sent straight to the Sheet) ---------------- */
-
-void addLog(const String& msg) {
-  Serial.println(msg);
-  if (WiFi.status() != WL_CONNECTED) return;
-
-  StaticJsonDocument<256> doc;
-  doc["key"] = SHARED_KEY;
-  doc["action"] = "log";
-  doc["message"] = msg;
-  String body;
-  serializeJson(doc, body);
-  httpsPost(GAS_URL, body); // fire-and-forget; response isn't needed
+function exportSchedule() {
+  if (!calcResult) { alert("Calculate first."); return; }
+  addSchedule({
+    onTime: calcResult.onTime, offTime: calcResult.offTime, repeat: true,
+    startPercent: calcResult.current, targetPercent: calcResult.target, minutesPerPercent: calcResult.minPer
+  });
 }
 
-/* ---------------- Battery voltage ----------------
-   Only meaningful if you've wired a resistor divider from a
-   battery/supply into VOLTAGE_PIN. If you don't need this,
-   this can just return 0 — it's sent along with every poll
-   purely for display on the control page. */
-
-float readBatteryVoltage() {
-  int raw = analogRead(VOLTAGE_PIN);
-  float pinVoltage = (raw / 4095.0) * 3.3; // rough — ESP32 ADC is non-linear near the rails
-  return pinVoltage * VOLTAGE_DIVIDER_RATIO;
+async function rebootDevice() {
+  if (!confirm("Reboot the device now?")) return;
+  try {
+    const result = await apiPost({ action: "reboot" });
+    if (result.status !== "ok") throw new Error(result.message);
+    alert("Reboot requested — applies on the device's next check-in.");
+  } catch (err) { alert("Could not request reboot: " + err.message); }
 }
 
-/* ---------------- OTA (firmware update over the internet) ---------------- */
-
-void performOta(const char* url) {
-  addLog("Starting OTA update from cloud...");
-  delay(200); // give the log POST time to leave before we start overwriting flash
-
-  WiFiClientSecure client;
-  client.setInsecure();
-  httpUpdate.rebootOnUpdate(true);
-
-  t_httpUpdate_return ret = httpUpdate.update(client, url);
-  switch (ret) {
-    case HTTP_UPDATE_FAILED:
-      addLog("OTA failed: " + httpUpdate.getLastErrorString());
-      break;
-    case HTTP_UPDATE_NO_UPDATES:
-      addLog("OTA: server reported no update needed");
-      break;
-    case HTTP_UPDATE_OK:
-      addLog("OTA succeeded, rebooting"); // device reboots automatically; this may not even send
-      break;
-  }
+async function pushOta() {
+  const otaUrl = document.getElementById("otaUrlInput").value.trim();
+  const otaVersion = document.getElementById("otaVersionInput").value.trim();
+  const toast = document.getElementById("otaToast");
+  if (!otaUrl || !otaVersion) { toast.className = "toast err"; toast.textContent = "Enter both fields."; return; }
+  try {
+    const result = await apiPost({ action: "pushOta", otaUrl, otaVersion });
+    if (result.status !== "ok") throw new Error(result.message);
+    toast.className = "toast ok";
+    toast.textContent = "Update pushed — picked up on next check-in.";
+  } catch (err) { toast.className = "toast err"; toast.textContent = "Could not push update: " + err.message; }
 }
 
-/* ---------------- Flash storage (Preferences / NVS) ---------------- */
-
-void saveSchedulesToFlash() {
-  prefs.begin("relay", false);
-  prefs.putInt("numSched", numSchedules);
-  prefs.putBytes("schedules", schedules, sizeof(schedules));
-  prefs.putLong("schedVer", schedulesVersion);
-  prefs.end();
+async function clearOta() {
+  const toast = document.getElementById("otaToast");
+  try {
+    const result = await apiPost({ action: "clearOta" });
+    if (result.status !== "ok") throw new Error(result.message);
+    toast.className = "toast ok";
+    toast.textContent = "Pending update cancelled.";
+  } catch (err) { toast.className = "toast err"; toast.textContent = "Could not cancel: " + err.message; }
 }
 
-void loadSchedulesFromFlash() {
-  prefs.begin("relay", true);
-  numSchedules = prefs.getInt("numSched", 0);
-  if (numSchedules < 0 || numSchedules > MAX_SCHEDULES) numSchedules = 0;
-  prefs.getBytes("schedules", schedules, sizeof(schedules));
-  schedulesVersion = prefs.getLong("schedVer", -1);
-  prefs.end();
+if (connection && connection.gasUrl && connection.sharedKey) {
+  showApp();
+  refresh();
+  setInterval(refresh, 5000);
+} else {
+  showGate();
 }
+</script>
+</body>
+</html>
