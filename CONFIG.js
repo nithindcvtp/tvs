@@ -2,7 +2,7 @@
 
 const CONFIG = {
   // Paste the Web App URL you get after deploying the Apps Script (ends in /exec)
-  APPS_SCRIPT_URL: 'PASTE_YOUR_APPS_SCRIPT_WEB_APP_URL_HERE',
+  APPS_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbz4veptyj2ywOmMjqm7DcJB7uT-BPeLSWkOLVYuZEnSOauT2bUSllGQ1HXGlW27bion/exec',
 
   // Add or remove chips here — this list drives the dropdown and the filter buttons
   CHIPS: [
