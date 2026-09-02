@@ -1,655 +1,137 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="graphite">
+<html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Relay Console</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ESP32 LED Control</title>
 <style>
-  /* ============================================================
-     THEME TOKENS
-     Signature element across every theme: the relay switch itself
-     is drawn as a real three-position rocker (OFF / AUTO / ON)
-     rather than a row of flat buttons — because that's what this
-     page actually operates.
-     ============================================================ */
-  :root[data-theme="graphite"] {
-    --bg: #0a0b0d;
-    --bg-image: none;
-    --panel: #16181c;
-    --panel-2: #1c1f24;
-    --line: #292d33;
-    --ink: #eceef0;
-    --muted: #868c94;
-    --dim: #474d55;
-    --accent: #f2a53d;
-    --accent-ink: #1a1408;
-    --accent-dim: #3f2c11;
-    --ok: #3ddc97;
-    --ok-dim: #123829;
-    --bad: #ef5350;
-    --bad-dim: #391414;
-    --plate-radius: 10px;
-    --font-display: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-data: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --glow: 0 0 22px 3px;
-    --texture-opacity: 0;
-  }
-
-  :root[data-theme="blueprint"] {
-    --bg: #eef0e6;
-    --bg-image:
-      linear-gradient(rgba(47,95,168,0.07) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(47,95,168,0.07) 1px, transparent 1px);
-    --panel: #f6f7f0;
-    --panel-2: #eceee3;
-    --line: #c7cdb9;
-    --ink: #202a1f;
-    --muted: #5b6459;
-    --dim: #99a191;
-    --accent: #2f5fa8;
-    --accent-ink: #ffffff;
-    --accent-dim: #d7e0f0;
-    --ok: #2f7a55;
-    --ok-dim: #d9ecdf;
-    --bad: #b3401f;
-    --bad-dim: #f4ddd2;
-    --plate-radius: 3px;
-    --font-display: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-data: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --glow: 0 0 0 1px;
-    --texture-opacity: 1;
-  }
-
-  :root[data-theme="phosphor"] {
-    --bg: #040a06;
-    --bg-image: none;
-    --panel: #081410;
-    --panel-2: #0b1a14;
-    --line: #16352a;
-    --ink: #a9f5c4;
-    --muted: #4f9a72;
-    --dim: #235c40;
-    --accent: #4beb8f;
-    --accent-ink: #04140b;
-    --accent-dim: #103322;
-    --ok: #4beb8f;
-    --ok-dim: #103322;
-    --bad: #ff6a5b;
-    --bad-dim: #3a1610;
-    --plate-radius: 4px;
-    --font-display: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --font-body: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --font-data: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --glow: 0 0 16px 2px;
-    --texture-opacity: 1;
-  }
-
-  :root[data-theme="copper"] {
-    --bg: #120d0a;
-    --bg-image: none;
-    --panel: #1c1511;
-    --panel-2: #241a15;
-    --line: #3a2a20;
-    --ink: #f1e6da;
-    --muted: #a68a76;
-    --dim: #5e483a;
-    --accent: #d4874a;
-    --accent-ink: #1c0f05;
-    --accent-dim: #452c18;
-    --ok: #7fbf8f;
-    --ok-dim: #24382a;
-    --bad: #e2604a;
-    --bad-dim: #3d1f18;
-    --plate-radius: 8px;
-    --font-display: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --font-body: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-    --font-data: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
-    --glow: 0 0 18px 3px;
-    --texture-opacity: 1;
-  }
-
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-  html, body { margin: 0; }
+  * { box-sizing: border-box; }
   body {
-    background: var(--bg) var(--bg-image);
-    background-size: 22px 22px;
-    color: var(--ink);
-    font-family: var(--font-body);
-    transition: background 0.25s ease, color 0.25s ease;
+    margin: 0;
     min-height: 100vh;
-  }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 24px 18px 70px; }
-
-  /* Copper theme: faint circuit-trace divider used inside plates */
-  [data-theme="copper"] .plate::before {
-    content: "";
-    display: block;
-    height: 1px;
-    margin: -20px -20px 16px;
-    background:
-      repeating-linear-gradient(90deg, var(--accent-dim) 0 6px, transparent 6px 10px);
-    opacity: 0.6;
-  }
-  [data-theme="phosphor"] .wrap::after {
-    content: "";
-    position: fixed; inset: 0; pointer-events: none; z-index: 5;
-    background: repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 1px, transparent 1px, transparent 3px);
-    mix-blend-mode: multiply;
-  }
-
-  .plate {
-    position: relative;
-    background: var(--panel);
-    border: 1px solid var(--line);
-    border-radius: var(--plate-radius);
-    padding: 20px;
-    margin-bottom: 14px;
-  }
-  .eyebrow {
-    font-family: var(--font-display);
-    font-size: 11px;
-    letter-spacing: 0.14em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin: 0 0 16px;
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: center;
+    background: #0f172a;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   }
-  .eyebrow::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--dim); flex-shrink: 0; }
-
-  .brandbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; gap: 12px; flex-wrap: wrap; }
-  .brand { display: flex; align-items: center; gap: 10px; }
-  .brand .mark {
-    width: 30px; height: 30px; border-radius: 7px;
-    border: 1px solid var(--line); background: var(--panel-2);
-    display: flex; align-items: center; justify-content: center;
-    font-family: var(--font-display); font-size: 13px; color: var(--accent);
+  .card {
+    background: #1e293b;
+    border-radius: 16px;
+    padding: 40px 36px;
+    width: 320px;
+    text-align: center;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4);
   }
-  .brandbar h1 { font-family: var(--font-display); font-size: 14px; letter-spacing: 0.12em; text-transform: uppercase; margin: 0; color: var(--ink); }
-  .brandbar .sub { font-family: var(--font-display); font-size: 10px; letter-spacing: 0.08em; color: var(--dim); margin: 2px 0 0; }
-
-  .headctrls { display: flex; align-items: center; gap: 10px; }
-  .theme-select {
-    font-family: var(--font-display); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase;
-    background: var(--panel-2); color: var(--ink); border: 1px solid var(--line); border-radius: 6px;
-    padding: 7px 26px 7px 10px; cursor: pointer; appearance: none;
-    background-image: linear-gradient(45deg, transparent 50%, var(--muted) 50%), linear-gradient(135deg, var(--muted) 50%, transparent 50%);
-    background-position: calc(100% - 13px) center, calc(100% - 8px) center;
-    background-size: 5px 5px, 5px 5px; background-repeat: no-repeat;
+  h1 {
+    color: #f1f5f9;
+    font-size: 20px;
+    margin: 0 0 24px;
+    font-weight: 600;
   }
-  .link { font-family: var(--font-display); font-size: 10px; color: var(--dim); background: none; border: none; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; letter-spacing: 0.06em; text-transform: uppercase; }
-
-  /* ---------------- Relay switch (signature element) ---------------- */
-  .switch-row { display: flex; align-items: center; gap: 18px; margin-bottom: 6px; }
-  .lamp {
-    width: 14px; height: 14px; border-radius: 50%; flex-shrink: 0;
-    background: var(--panel-2); border: 1px solid var(--line);
-    transition: background 0.25s, box-shadow 0.25s;
+  .bulb {
+    width: 90px;
+    height: 90px;
+    margin: 0 auto 24px;
+    border-radius: 50%;
+    background: #334155;
+    transition: background 0.3s, box-shadow 0.3s;
   }
-  .lamp.energized { background: var(--ok); box-shadow: var(--glow) color-mix(in srgb, var(--ok) 70%, transparent); }
-  .lamp.waiting { background: var(--accent); box-shadow: var(--glow) color-mix(in srgb, var(--accent) 55%, transparent); }
-
-  .switch-meta .mode { font-family: var(--font-display); font-size: 18px; letter-spacing: 0.04em; margin: 0; }
-  .switch-meta .detail { font-family: var(--font-display); font-size: 11px; color: var(--muted); margin: 4px 0 0; }
-
-  .rocker {
-    position: relative;
-    display: grid; grid-template-columns: repeat(3, 1fr);
-    background: var(--panel-2); border: 1px solid var(--line); border-radius: 999px;
-    padding: 4px; margin-top: 16px; height: 46px;
+  .bulb.on {
+    background: #facc15;
+    box-shadow: 0 0 40px 10px rgba(250, 204, 21, 0.6);
   }
-  .rocker .knob {
-    position: absolute; top: 4px; bottom: 4px; left: 4px;
-    width: calc(33.333% - 4px);
-    border-radius: 999px;
-    background: var(--accent-dim);
-    transition: transform 0.22s cubic-bezier(.4,0,.2,1), background 0.22s;
-    z-index: 0;
+  .status {
+    color: #94a3b8;
+    font-size: 14px;
+    margin-bottom: 24px;
+    letter-spacing: 0.5px;
   }
-  .rocker.pos-off .knob { transform: translateX(0%); background: var(--bad-dim); }
-  .rocker.pos-auto .knob { transform: translateX(100%); background: var(--accent-dim); }
-  .rocker.pos-on .knob { transform: translateX(200%); background: var(--ok-dim); }
-  .rocker button {
-    position: relative; z-index: 1;
-    background: none; border: none; cursor: pointer;
-    font-family: var(--font-display); font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase;
-    color: var(--muted); padding: 0;
+  .status.on { color: #facc15; }
+  .buttons { display: flex; gap: 12px; }
+  button {
+    flex: 1;
+    padding: 14px 0;
+    border: none;
+    border-radius: 10px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.1s;
   }
-  .rocker.pos-off button[data-v="OFF"],
-  .rocker.pos-auto button[data-v="AUTO"],
-  .rocker.pos-on button[data-v="ON"] { color: var(--ink); font-weight: 600; }
-
-  /* ---------------- Readouts (gauge plates) ---------------- */
-  .readouts { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1px; background: var(--line); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; }
-  .readout { background: var(--panel-2); padding: 12px 14px; }
-  .readout .k { font-family: var(--font-display); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase; color: var(--dim); margin: 0 0 6px; }
-  .readout .v { font-family: var(--font-data); font-size: 16px; color: var(--ink); margin: 0; }
-
-  /* ---------------- Forms ---------------- */
-  .field { margin-bottom: 12px; }
-  .field label { display: block; font-family: var(--font-display); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 6px; }
-  .field input {
-    width: 100%; padding: 10px 12px; background: var(--panel-2); border: 1px solid var(--line);
-    border-radius: 6px; color: var(--ink); font-family: var(--font-body); font-size: 14px;
+  button:active { transform: scale(0.97); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  #onBtn { background: #22c55e; color: white; }
+  #offBtn { background: #ef4444; color: white; }
+  .hint {
+    margin-top: 20px;
+    font-size: 12px;
+    color: #64748b;
   }
-  .field input:focus, .theme-select:focus, button:focus-visible {
-    outline: 2px solid var(--accent); outline-offset: 1px;
-  }
-  .field input[type="checkbox"] { width: auto; }
-  .row { display: flex; gap: 10px; flex-wrap: wrap; }
-  .row .field { flex: 1; min-width: 130px; }
-
-  button.action {
-    font-family: var(--font-display); font-size: 12px; letter-spacing: 0.06em; text-transform: uppercase;
-    border-radius: 6px; padding: 11px 16px; cursor: pointer; border: 1px solid var(--line);
-    background: var(--panel-2); color: var(--ink);
-  }
-  button.action.primary { background: var(--accent-dim); color: var(--accent); border-color: var(--accent-dim); }
-  button.action.danger { background: var(--bad-dim); color: var(--bad); border-color: var(--bad-dim); }
-
-  /* ---------------- Lists ---------------- */
-  .sched-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--line); }
-  .sched-item:last-child { border-bottom: none; }
-  .sched-item .times { font-family: var(--font-data); font-size: 14px; }
-  .sched-item .meta { font-size: 11px; color: var(--muted); margin-top: 3px; }
-  .sched-item button { padding: 6px 10px; font-size: 10px; }
-
-  .log-line { font-family: var(--font-data); font-size: 11px; color: var(--muted); padding: 4px 0; border-bottom: 1px solid var(--line); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .log-line:last-child { border-bottom: none; }
-  .log-line .t { color: var(--dim); margin-right: 8px; }
-
-  .empty { font-family: var(--font-display); font-size: 12px; color: var(--dim); padding: 6px 0; }
-  .toast { font-family: var(--font-display); font-size: 11px; margin-top: 10px; min-height: 14px; }
-  .toast.err { color: var(--bad); }
-  .toast.ok { color: var(--ok); }
-  .helptext { font-size: 12px; color: var(--muted); margin: 10px 0 0; line-height: 1.5; }
-
-  .gate { position: fixed; inset: 0; background: var(--bg) var(--bg-image); background-size: 22px 22px; display: flex; align-items: center; justify-content: center; padding: 24px; z-index: 10; }
-  .gate-plate { max-width: 340px; width: 100%; }
 </style>
 </head>
 <body>
 
-<div id="gate" class="gate" style="display:none;">
-  <div class="gate-plate plate">
-    <p class="eyebrow">Connect</p>
-    <div class="field"><label>Apps Script URL</label><input type="text" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec"></div>
-    <div class="field"><label>Shared Key</label><input type="password" id="sharedKeyInput" placeholder="matches SHARED_KEY in Code.gs"></div>
-    <button class="action primary" id="gateConnectBtn" style="width:100%;">Connect</button>
-    <div class="toast" id="gateToast"></div>
+<div class="card">
+  <h1>ESP32 LED Control</h1>
+  <div class="bulb" id="bulb"></div>
+  <div class="status" id="status">Checking status…</div>
+  <div class="buttons">
+    <button id="onBtn">Turn ON</button>
+    <button id="offBtn">Turn OFF</button>
   </div>
-</div>
-
-<div id="app" class="wrap" style="display:none;">
-
-  <div class="brandbar">
-    <div class="brand">
-      <div class="mark">R</div>
-      <div>
-        <h1>Relay Console</h1>
-        <p class="sub">Cloud-controlled switch</p>
-      </div>
-    </div>
-    <div class="headctrls">
-      <select class="theme-select" id="themeSelect" title="Theme">
-        <option value="graphite">Graphite</option>
-        <option value="blueprint">Blueprint</option>
-        <option value="phosphor">Phosphor</option>
-        <option value="copper">Copper</option>
-      </select>
-      <button class="link" onclick="if(confirm('Disconnect and clear saved connection?')){localStorage.removeItem('relayControlConnection');location.reload();}">Disconnect</button>
-    </div>
-  </div>
-
-  <div class="plate">
-    <p class="eyebrow">Output</p>
-    <div class="switch-row">
-      <div class="lamp" id="bulb"></div>
-      <div class="switch-meta">
-        <p class="mode" id="modeText">—</p>
-        <p class="detail" id="detailText">—</p>
-      </div>
-    </div>
-    <div class="rocker" id="rocker">
-      <div class="knob"></div>
-      <button data-v="OFF" onclick="setDesiredState('OFF')">Off</button>
-      <button data-v="AUTO" onclick="setDesiredState('AUTO')">Auto</button>
-      <button data-v="ON" onclick="setDesiredState('ON')">On</button>
-    </div>
-  </div>
-
-  <div class="plate">
-    <p class="eyebrow">Telemetry</p>
-    <div class="readouts">
-      <div class="readout"><p class="k">WiFi</p><p class="v" id="statRSSI">—</p></div>
-      <div class="readout"><p class="k">Uptime</p><p class="v" id="statUptime">—</p></div>
-      <div class="readout"><p class="k">Voltage</p><p class="v" id="statVcc">—</p></div>
-      <div class="readout"><p class="k">Firmware</p><p class="v" id="statFirmware">—</p></div>
-      <div class="readout"><p class="k">Last check-in</p><p class="v" id="statLastSeen">—</p></div>
-      <div class="readout"><p class="k">Reboot</p><p class="v"><button class="action danger" onclick="rebootDevice()" style="padding:4px 10px;">Send</button></p></div>
-    </div>
-  </div>
-
-  <div class="plate">
-    <p class="eyebrow">Add schedule</p>
-    <div class="row">
-      <div class="field"><label>Date</label><input type="date" id="schedDate"></div>
-      <div class="field" style="display:flex; align-items:end; padding-bottom:10px;">
-        <label style="display:flex; align-items:center; gap:8px; text-transform:none; font-family:var(--font-body); font-size:13px; color:var(--ink); margin:0;">
-          <input type="checkbox" id="schedRepeat"> Repeat daily
-        </label>
-      </div>
-    </div>
-    <div class="row">
-      <div class="field"><label>On time</label><input type="time" id="schedOnTime"></div>
-      <div class="field"><label>Off time</label><input type="time" id="schedOffTime"></div>
-    </div>
-    <button class="action primary" onclick="addSchedule()">Add schedule</button>
-  </div>
-
-  <div class="plate">
-    <p class="eyebrow">Charge calculator</p>
-    <div class="row">
-      <div class="field"><label>Min / 1%</label><input type="number" id="calcMinPer" value="3"></div>
-      <div class="field"><label>Current %</label><input type="number" id="calcCurrent" value="30"></div>
-      <div class="field"><label>Target %</label><input type="number" id="calcTarget" value="90"></div>
-    </div>
-    <div class="field"><label>On time</label><input type="time" id="calcOnTime"></div>
-    <div class="row">
-      <button class="action" onclick="calculateCharge()">Calculate</button>
-      <button class="action primary" onclick="exportSchedule()">Export to schedule</button>
-    </div>
-    <p class="detail" id="calcResultText" style="margin-top:12px;"></p>
-  </div>
-
-  <div class="plate">
-    <p class="eyebrow">Schedules</p>
-    <div id="scheduleList"><p class="empty">Loading…</p></div>
-  </div>
-
-  <div class="plate">
-    <p class="eyebrow">Firmware (OTA)</p>
-    <div class="field"><label>Firmware .bin URL</label><input type="text" id="otaUrlInput" placeholder="https://.../firmware.bin"></div>
-    <div class="field"><label>Version label</label><input type="text" id="otaVersionInput" placeholder="e.g. 1.1.0"></div>
-    <div class="row">
-      <button class="action primary" onclick="pushOta()">Push update</button>
-      <button class="action" onclick="clearOta()">Cancel pending</button>
-    </div>
-    <p class="toast" id="otaToast"></p>
-    <p class="helptext">Checked every ~15s. Host the .bin somewhere reachable over plain internet — a GitHub release asset works well.</p>
-  </div>
-
-  <div class="plate">
-    <p class="eyebrow">Log</p>
-    <div id="logList"><p class="empty">Loading…</p></div>
-  </div>
-
+  <div class="hint">Updates the shared Google Sheet. The ESP32 checks it every few seconds.</div>
 </div>
 
 <script>
-const STORAGE_KEY = "relayControlConnection";
-const THEME_KEY = "relayControlTheme";
-let connection = loadConnection();
-let calcResult = null;
+  // PASTE your Google Apps Script Web App URL here (ends in /exec)
+  const SCRIPT_URL = "PASTE_YOUR_APPS_SCRIPT_URL_HERE";
 
-/* ---------------- Theme ---------------- */
-function applyTheme(name) {
-  document.documentElement.setAttribute("data-theme", name);
-  const sel = document.getElementById("themeSelect");
-  if (sel) sel.value = name;
-}
-function loadTheme() {
-  try { return localStorage.getItem(THEME_KEY) || "graphite"; } catch (e) { return "graphite"; }
-}
-applyTheme(loadTheme());
-document.addEventListener("DOMContentLoaded", () => {
-  const sel = document.getElementById("themeSelect");
-  sel.value = loadTheme();
-  sel.addEventListener("change", () => {
-    applyTheme(sel.value);
-    try { localStorage.setItem(THEME_KEY, sel.value); } catch (e) {}
-  });
-});
+  const bulb = document.getElementById('bulb');
+  const statusEl = document.getElementById('status');
+  const onBtn = document.getElementById('onBtn');
+  const offBtn = document.getElementById('offBtn');
 
-function loadConnection() {
-  try { const raw = localStorage.getItem(STORAGE_KEY); return raw ? JSON.parse(raw) : null; }
-  catch (e) { return null; }
-}
-function saveConnection(c) { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(c)); } catch (e) {} }
-
-async function apiGet() {
-  const url = connection.gasUrl + "?key=" + encodeURIComponent(connection.sharedKey);
-  const res = await fetch(url);
-  return res.json();
-}
-async function apiPost(payload) {
-  const body = Object.assign({ key: connection.sharedKey }, payload);
-  const res = await fetch(connection.gasUrl, {
-    method: "POST", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(body)
-  });
-  return res.json();
-}
-
-function showGate() { document.getElementById("app").style.display = "none"; document.getElementById("gate").style.display = "flex"; }
-function showApp() { document.getElementById("gate").style.display = "none"; document.getElementById("app").style.display = "block"; }
-
-document.getElementById("gateConnectBtn").addEventListener("click", async () => {
-  const gasUrl = document.getElementById("gasUrlInput").value.trim();
-  const sharedKey = document.getElementById("sharedKeyInput").value.trim();
-  const toast = document.getElementById("gateToast");
-  if (!gasUrl || !sharedKey) { toast.className = "toast err"; toast.textContent = "Enter both fields."; return; }
-
-  connection = { gasUrl, sharedKey };
-  toast.className = "toast"; toast.textContent = "Connecting…";
-  try {
-    const result = await apiGet();
-    if (result.status !== "ok") throw new Error(result.message || "Could not connect.");
-    saveConnection(connection);
-    showApp();
-    refresh();
-    setInterval(refresh, 5000);
-  } catch (err) {
-    toast.className = "toast err";
-    toast.textContent = "Could not connect: " + err.message;
-  }
-});
-
-function fmtUptime(seconds) {
-  seconds = Number(seconds) || 0;
-  const h = Math.floor(seconds / 3600), m = Math.floor((seconds % 3600) / 60), s = seconds % 60;
-  return `${String(h).padStart(2,"0")}:${String(m).padStart(2,"0")}:${String(s).padStart(2,"0")}`;
-}
-function fmtAgo(isoString) {
-  if (!isoString) return "never";
-  const diffSec = Math.round((Date.now() - new Date(isoString).getTime()) / 1000);
-  if (diffSec < 60) return diffSec + "s ago";
-  if (diffSec < 3600) return Math.round(diffSec / 60) + "m ago";
-  return Math.round(diffSec / 3600) + "h ago";
-}
-
-async function refresh() {
-  try {
-    const result = await apiGet();
-    if (result.status !== "ok") throw new Error(result.message || "Refresh failed");
-    render(result);
-  } catch (err) { console.error(err); }
-}
-
-function render(result) {
-  const d = result.device || {};
-  const desired = d.DesiredState || "AUTO";
-  const actual = d.RelayState || "—";
-
-  const bulb = document.getElementById("bulb");
-  const modeText = document.getElementById("modeText");
-  const detailText = document.getElementById("detailText");
-  const rocker = document.getElementById("rocker");
-
-  rocker.className = "rocker pos-" + desired.toLowerCase();
-
-  if (desired === "AUTO") {
-    modeText.textContent = "Auto";
-    detailText.textContent = "Relay is currently " + actual.toLowerCase() + " (schedule)";
-    bulb.className = "lamp " + (actual === "ON" ? "energized" : "");
-  } else if (desired === "ON") {
-    modeText.textContent = "On";
-    detailText.textContent = "Manual override";
-    bulb.className = "lamp energized";
-  } else {
-    modeText.textContent = "Off";
-    detailText.textContent = "Manual override";
-    bulb.className = "lamp";
+  function render(state) {
+    const isOn = state === "ON";
+    bulb.classList.toggle('on', isOn);
+    statusEl.classList.toggle('on', isOn);
+    statusEl.textContent = "Status: " + state;
   }
 
-  document.getElementById("statRSSI").textContent = d.WifiRSSI ? d.WifiRSSI + " dBm" : "—";
-  document.getElementById("statUptime").textContent = d.Uptime ? fmtUptime(d.Uptime) : "—";
-  document.getElementById("statVcc").textContent = d.Vcc ? Number(d.Vcc).toFixed(2) + " V" : "—";
-  document.getElementById("statFirmware").textContent = d.FirmwareVersion || "—";
-  document.getElementById("statLastSeen").textContent = fmtAgo(d.LastSeen);
+  async function getStatus() {
+    try {
+      const res = await fetch(SCRIPT_URL);
+      const data = await res.json();
+      render(data.state);
+    } catch (err) {
+      statusEl.textContent = "Connection error";
+      console.error(err);
+    }
+  }
 
-  renderSchedules(result.schedules || []);
-  renderLogs(result.logs || []);
-}
+  async function setStatus(state) {
+    onBtn.disabled = true;
+    offBtn.disabled = true;
+    try {
+      const res = await fetch(SCRIPT_URL + "?state=" + state);
+      const data = await res.json();
+      render(data.state);
+    } catch (err) {
+      statusEl.textContent = "Connection error";
+      console.error(err);
+    } finally {
+      onBtn.disabled = false;
+      offBtn.disabled = false;
+    }
+  }
 
-function renderSchedules(schedules) {
-  const el = document.getElementById("scheduleList");
-  if (schedules.length === 0) { el.innerHTML = '<p class="empty">No schedules yet.</p>'; return; }
-  el.innerHTML = "";
-  schedules.forEach(s => {
-    const row = document.createElement("div");
-    row.className = "sched-item";
-    const left = document.createElement("div");
-    left.innerHTML = `<div class="times">${s.onTime} \u2192 ${s.offTime}</div><div class="meta">${s.repeat ? "Repeats daily" : s.date}</div>`;
-    const btn = document.createElement("button");
-    btn.className = "action danger";
-    btn.textContent = "Delete";
-    btn.addEventListener("click", () => deleteSchedule(s.row));
-    row.appendChild(left);
-    row.appendChild(btn);
-    el.appendChild(row);
-  });
-}
+  onBtn.addEventListener('click', () => setStatus('ON'));
+  offBtn.addEventListener('click', () => setStatus('OFF'));
 
-function renderLogs(logs) {
-  const el = document.getElementById("logList");
-  if (logs.length === 0) { el.innerHTML = '<p class="empty">No log entries yet.</p>'; return; }
-  el.innerHTML = "";
-  logs.forEach(l => {
-    const line = document.createElement("div");
-    line.className = "log-line";
-    const t = l.time ? new Date(l.time).toLocaleTimeString() : "";
-    line.innerHTML = `<span class="t">${t}</span>${l.message}`;
-    el.appendChild(line);
-  });
-}
-
-async function setDesiredState(state) {
-  try {
-    const result = await apiPost({ action: "setDesiredState", state });
-    if (result.status !== "ok") throw new Error(result.message);
-    refresh();
-  } catch (err) { alert("Could not set state: " + err.message); }
-}
-
-async function addSchedule(overrides) {
-  const date = document.getElementById("schedDate").value;
-  const onTime = document.getElementById("schedOnTime").value;
-  const offTime = document.getElementById("schedOffTime").value;
-  const repeat = document.getElementById("schedRepeat").checked;
-
-  const data = Object.assign({
-    date: date || new Date().toISOString().slice(0, 10),
-    onTime, offTime, repeat, startPercent: 0, targetPercent: 0, minutesPerPercent: 0
-  }, overrides || {});
-
-  if (!data.onTime || !data.offTime) { alert("Set both an on time and off time."); return; }
-
-  try {
-    const result = await apiPost({ action: "addSchedule", data });
-    if (result.status !== "ok") throw new Error(result.message);
-    refresh();
-  } catch (err) { alert("Could not add schedule: " + err.message); }
-}
-
-async function deleteSchedule(row) {
-  if (!confirm("Delete this schedule?")) return;
-  try {
-    const result = await apiPost({ action: "deleteSchedule", row });
-    if (result.status !== "ok") throw new Error(result.message);
-    refresh();
-  } catch (err) { alert("Could not delete schedule: " + err.message); }
-}
-
-function calculateCharge() {
-  const minPer = parseInt(document.getElementById("calcMinPer").value, 10);
-  const current = parseInt(document.getElementById("calcCurrent").value, 10);
-  const target = parseInt(document.getElementById("calcTarget").value, 10);
-  const onTime = document.getElementById("calcOnTime").value;
-
-  if (!onTime) { alert("Set an on time first."); return; }
-  if (target <= current) { alert("Target must be greater than current."); return; }
-
-  const totalMinutes = (target - current) * minPer;
-  const [h, m] = onTime.split(":").map(Number);
-  const dt = new Date();
-  dt.setHours(h, m + totalMinutes, 0, 0);
-  const offTime = String(dt.getHours()).padStart(2, "0") + ":" + String(dt.getMinutes()).padStart(2, "0");
-
-  const hrs = Math.floor(totalMinutes / 60), mins = totalMinutes % 60;
-  document.getElementById("calcResultText").textContent = `${hrs}h ${mins}m \u2192 off at ${offTime}`;
-  calcResult = { onTime, offTime, current, target, minPer };
-}
-
-function exportSchedule() {
-  if (!calcResult) { alert("Calculate first."); return; }
-  addSchedule({
-    onTime: calcResult.onTime, offTime: calcResult.offTime, repeat: true,
-    startPercent: calcResult.current, targetPercent: calcResult.target, minutesPerPercent: calcResult.minPer
-  });
-}
-
-async function rebootDevice() {
-  if (!confirm("Reboot the device now?")) return;
-  try {
-    const result = await apiPost({ action: "reboot" });
-    if (result.status !== "ok") throw new Error(result.message);
-    alert("Reboot requested — applies on the device's next check-in.");
-  } catch (err) { alert("Could not request reboot: " + err.message); }
-}
-
-async function pushOta() {
-  const otaUrl = document.getElementById("otaUrlInput").value.trim();
-  const otaVersion = document.getElementById("otaVersionInput").value.trim();
-  const toast = document.getElementById("otaToast");
-  if (!otaUrl || !otaVersion) { toast.className = "toast err"; toast.textContent = "Enter both fields."; return; }
-  try {
-    const result = await apiPost({ action: "pushOta", otaUrl, otaVersion });
-    if (result.status !== "ok") throw new Error(result.message);
-    toast.className = "toast ok";
-    toast.textContent = "Update pushed — picked up on next check-in.";
-  } catch (err) { toast.className = "toast err"; toast.textContent = "Could not push update: " + err.message; }
-}
-
-async function clearOta() {
-  const toast = document.getElementById("otaToast");
-  try {
-    const result = await apiPost({ action: "clearOta" });
-    if (result.status !== "ok") throw new Error(result.message);
-    toast.className = "toast ok";
-    toast.textContent = "Pending update cancelled.";
-  } catch (err) { toast.className = "toast err"; toast.textContent = "Could not cancel: " + err.message; }
-}
-
-if (connection && connection.gasUrl && connection.sharedKey) {
-  showApp();
-  refresh();
-  setInterval(refresh, 5000);
-} else {
-  showGate();
-}
+  getStatus();
+  setInterval(getStatus, 4000); // keep UI in sync if changed elsewhere
 </script>
+
 </body>
 </html>
