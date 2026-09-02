@@ -290,7 +290,7 @@
 
 <script>
   // PASTE your Google Apps Script Web App URL here (ends in /exec)
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7QLy9wso--GSmu5pcnefXmK7BLyUPjOgUKBkfssD-L-8wsXBVHmKr5uMuFVMPizHqBQ/exec";
+  const SCRIPT_URL = "https://script.googleusercontent.com/macros/echo?user_content_key=AUkAhnTHmccuD-POwvtOvEM2C_p9TJVHbG-1lI7u6-C8dEyDqYvpiIAbrE2YjdXChHu0aN0nMnlOh4voC-NspEc6NdUJMLYRLD7uH9XLq5g4m4BrgCCnuUjs9M3fmloEAxgGTAAW23Q3Rpbyq_j63xfROkTQ1XMajFaefKtsFHJEMB6ygfXmuVrYF8Spge5Mkcr6Xg51-eDlBYnBpI3oAZu1uuKhFThr6BZijEOtIOsLxgNpoCPxUQGSEcR6W7TJCkL9-kmW3hkHJoPYnuY6iTLVVAvCeHUEBw&lib=MEwWqZHscYUV1pkvDN0N5EzqAWGjXeO4d";
 
   const bulb = document.getElementById('bulb');
   const statusEl = document.getElementById('status');
@@ -443,13 +443,21 @@
     statusDetailEl.textContent = detail;
   }
 
+  let consecutiveFailures = 0;
+
   async function getStatus() {
     try {
       const res = await fetch(SCRIPT_URL);
       const data = await res.json();
+      consecutiveFailures = 0;
       render(data);
     } catch (err) {
-      statusEl.textContent = 'Connection error';
+      consecutiveFailures++;
+      // A single missed poll is normal (transient network/quota blip) -
+      // only surface it after two in a row so the UI doesn't flicker.
+      if (consecutiveFailures >= 2) {
+        statusEl.textContent = 'Connection error';
+      }
       console.error(err);
     }
   }
@@ -467,7 +475,7 @@
   }
 
   getStatus();
-  setInterval(getStatus, 4000);
+  setInterval(getStatus, 6000);
 </script>
 
 </body>
