@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>ESP32 LED Control</title>
+<title>ESP32 LED / EV Charge Control</title>
 <style>
   * { box-sizing: border-box; }
   body {
@@ -14,123 +14,460 @@
     justify-content: center;
     background: #0f172a;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    padding: 24px 12px;
   }
   .card {
     background: #1e293b;
     border-radius: 16px;
-    padding: 40px 36px;
-    width: 320px;
-    text-align: center;
+    padding: 32px 30px;
+    width: 380px;
+    max-width: 100%;
     box-shadow: 0 10px 40px rgba(0,0,0,0.4);
   }
   h1 {
     color: #f1f5f9;
-    font-size: 20px;
-    margin: 0 0 24px;
+    font-size: 19px;
+    margin: 0 0 20px;
     font-weight: 600;
+    text-align: center;
   }
+
+  /* status block */
+  .status-block { text-align: center; margin-bottom: 22px; }
   .bulb {
-    width: 90px;
-    height: 90px;
-    margin: 0 auto 24px;
+    width: 72px;
+    height: 72px;
+    margin: 0 auto 14px;
     border-radius: 50%;
     background: #334155;
     transition: background 0.3s, box-shadow 0.3s;
   }
   .bulb.on {
     background: #facc15;
-    box-shadow: 0 0 40px 10px rgba(250, 204, 21, 0.6);
+    box-shadow: 0 0 36px 8px rgba(250, 204, 21, 0.55);
   }
   .status {
     color: #94a3b8;
     font-size: 14px;
-    margin-bottom: 24px;
-    letter-spacing: 0.5px;
+    font-weight: 600;
   }
   .status.on { color: #facc15; }
-  .buttons { display: flex; gap: 12px; }
-  button {
+  .status-detail {
+    color: #64748b;
+    font-size: 12.5px;
+    margin-top: 4px;
+    line-height: 1.5;
+  }
+
+  /* tabs */
+  .tabs {
+    display: flex;
+    gap: 6px;
+    background: #0f172a;
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 20px;
+  }
+  .tab-btn {
     flex: 1;
-    padding: 14px 0;
+    padding: 9px 4px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: #94a3b8;
+    font-size: 12.5px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .tab-btn.active {
+    background: #334155;
+    color: #f1f5f9;
+  }
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  label {
+    display: block;
+    color: #cbd5e1;
+    font-size: 12.5px;
+    font-weight: 600;
+    margin: 14px 0 6px;
+  }
+  label:first-of-type { margin-top: 0; }
+  input[type="datetime-local"],
+  input[type="time"],
+  input[type="number"],
+  select {
+    width: 100%;
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #f1f5f9;
+    padding: 10px 12px;
+    border-radius: 8px;
+    font-size: 14px;
+  }
+  input:focus, select:focus { outline: 2px solid #38bdf8; }
+
+  .row { display: flex; gap: 10px; }
+  .row > div { flex: 1; }
+
+  .days {
+    display: flex;
+    gap: 5px;
+    margin-top: 6px;
+  }
+  .day-chip {
+    flex: 1;
+    text-align: center;
+    padding: 8px 0;
+    border-radius: 7px;
+    background: #0f172a;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    font-size: 11.5px;
+    font-weight: 600;
+    cursor: pointer;
+    user-select: none;
+  }
+  .day-chip.selected {
+    background: #38bdf8;
+    border-color: #38bdf8;
+    color: #0f172a;
+  }
+
+  .buttons { display: flex; gap: 10px; margin-top: 20px; }
+  button.action {
+    flex: 1;
+    padding: 13px 0;
     border: none;
     border-radius: 10px;
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 600;
     cursor: pointer;
     transition: opacity 0.2s, transform 0.1s;
   }
-  button:active { transform: scale(0.97); }
-  button:disabled { opacity: 0.5; cursor: not-allowed; }
+  button.action:active { transform: scale(0.97); }
+  button.action:disabled { opacity: 0.5; cursor: not-allowed; }
   #onBtn { background: #22c55e; color: white; }
   #offBtn { background: #ef4444; color: white; }
+  .save-btn { background: #38bdf8; color: #0f172a; width: 100%; }
+  .charge-btn { background: #22c55e; color: white; width: 100%; }
+  .cancel-btn {
+    width: 100%;
+    margin-top: 10px;
+    background: transparent;
+    border: 1px solid #334155;
+    color: #94a3b8;
+    padding: 10px 0;
+    border-radius: 10px;
+    font-size: 12.5px;
+    cursor: pointer;
+  }
+
+  .preview {
+    margin-top: 14px;
+    padding: 12px 14px;
+    background: #0f172a;
+    border-radius: 8px;
+    color: #86efac;
+    font-size: 12.5px;
+    line-height: 1.6;
+  }
   .hint {
-    margin-top: 20px;
-    font-size: 12px;
+    margin-top: 16px;
+    font-size: 11.5px;
     color: #64748b;
+    text-align: center;
   }
 </style>
 </head>
 <body>
 
 <div class="card">
-  <h1>ESP32 LED Control</h1>
-  <div class="bulb" id="bulb"></div>
-  <div class="status" id="status">Checking status…</div>
-  <div class="buttons">
-    <button id="onBtn">Turn ON</button>
-    <button id="offBtn">Turn OFF</button>
+  <h1>LED / EV Charge Control</h1>
+
+  <div class="status-block">
+    <div class="bulb" id="bulb"></div>
+    <div class="status" id="status">Checking status…</div>
+    <div class="status-detail" id="statusDetail"></div>
   </div>
-  <div class="hint">Updates the shared Google Sheet. The ESP32 checks it every few seconds.</div>
+
+  <div class="tabs">
+    <button class="tab-btn active" data-tab="manual">Manual</button>
+    <button class="tab-btn" data-tab="schedule">Schedule</button>
+    <button class="tab-btn" data-tab="soc">EV Charge</button>
+  </div>
+
+  <!-- MANUAL -->
+  <div class="panel active" id="panel-manual">
+    <div class="buttons">
+      <button class="action" id="onBtn">Turn ON</button>
+      <button class="action" id="offBtn">Turn OFF</button>
+    </div>
+  </div>
+
+  <!-- SCHEDULE -->
+  <div class="panel" id="panel-schedule">
+    <label for="schType">Repeat</label>
+    <select id="schType">
+      <option value="ONCE">One-time</option>
+      <option value="DAILY">Daily</option>
+      <option value="WEEKLY">Weekly</option>
+    </select>
+
+    <div id="weeklyDays" style="display:none;">
+      <label>On these days</label>
+      <div class="days">
+        <div class="day-chip" data-day="SUN">Su</div>
+        <div class="day-chip" data-day="MON">Mo</div>
+        <div class="day-chip" data-day="TUE">Tu</div>
+        <div class="day-chip" data-day="WED">We</div>
+        <div class="day-chip" data-day="THU">Th</div>
+        <div class="day-chip" data-day="FRI">Fr</div>
+        <div class="day-chip" data-day="SAT">Sa</div>
+      </div>
+    </div>
+
+    <div id="onceFields">
+      <label for="schStartDT">Turn ON at</label>
+      <input type="datetime-local" id="schStartDT">
+      <label for="schEndDT">Turn OFF at</label>
+      <input type="datetime-local" id="schEndDT">
+    </div>
+
+    <div id="repeatFields" style="display:none;">
+      <div class="row">
+        <div>
+          <label for="schStartTime">Turn ON at</label>
+          <input type="time" id="schStartTime">
+        </div>
+        <div>
+          <label for="schEndTime">Turn OFF at</label>
+          <input type="time" id="schEndTime">
+        </div>
+      </div>
+    </div>
+
+    <button class="action save-btn" id="saveScheduleBtn">Save Schedule</button>
+  </div>
+
+  <!-- EV CHARGE -->
+  <div class="panel" id="panel-soc">
+    <div class="row">
+      <div>
+        <label for="socCurrent">Current charge %</label>
+        <input type="number" id="socCurrent" min="0" max="100" value="50">
+      </div>
+      <div>
+        <label for="socTarget">Target charge %</label>
+        <input type="number" id="socTarget" min="0" max="100" value="70">
+      </div>
+    </div>
+
+    <label for="socRate">Minutes per 1% charge</label>
+    <input type="number" id="socRate" min="0.1" step="0.1" value="3">
+
+    <label for="socStartMode">Start charging</label>
+    <select id="socStartMode">
+      <option value="now">Now</option>
+      <option value="later">At a specific time</option>
+    </select>
+
+    <div id="socStartLaterField" style="display:none;">
+      <label for="socStartDT">Start at</label>
+      <input type="datetime-local" id="socStartDT">
+    </div>
+
+    <div class="preview" id="socPreview"></div>
+
+    <button class="action charge-btn" id="startChargeBtn">Start Charging Schedule</button>
+  </div>
+
+  <button class="cancel-btn" id="cancelBtn">Stop schedule / charging &amp; go to Manual OFF</button>
+
+  <div class="hint">Everything runs off the shared Google Sheet. The ESP32 checks it every few seconds.</div>
 </div>
 
 <script>
   // PASTE your Google Apps Script Web App URL here (ends in /exec)
-  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbwmG5YBsHqgD403bS78KLte29OfHzm-S0kZUpe25dsnPY2FQGVSs0ws4ygUXuJ_HWI/exec";
+  const SCRIPT_URL = "https://script.google.com/macros/s/AKfycbz7QLy9wso--GSmu5pcnefXmK7BLyUPjOgUKBkfssD-L-8wsXBVHmKr5uMuFVMPizHqBQ/exec";
 
   const bulb = document.getElementById('bulb');
   const statusEl = document.getElementById('status');
+  const statusDetailEl = document.getElementById('statusDetail');
+
+  // ---------- tabs ----------
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+    });
+  });
+
+  // ---------- manual ----------
   const onBtn = document.getElementById('onBtn');
   const offBtn = document.getElementById('offBtn');
+  onBtn.addEventListener('click', () => callAction({ action: 'setManual', state: 'ON' }));
+  offBtn.addEventListener('click', () => callAction({ action: 'setManual', state: 'OFF' }));
 
-  function render(state) {
-    const isOn = state === "ON";
+  // ---------- schedule ----------
+  const schType = document.getElementById('schType');
+  const onceFields = document.getElementById('onceFields');
+  const repeatFields = document.getElementById('repeatFields');
+  const weeklyDays = document.getElementById('weeklyDays');
+  let selectedDays = new Set();
+
+  schType.addEventListener('change', () => {
+    const isOnce = schType.value === 'ONCE';
+    onceFields.style.display = isOnce ? 'block' : 'none';
+    repeatFields.style.display = isOnce ? 'none' : 'block';
+    weeklyDays.style.display = schType.value === 'WEEKLY' ? 'block' : 'none';
+  });
+
+  document.querySelectorAll('.day-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      const day = chip.dataset.day;
+      if (selectedDays.has(day)) { selectedDays.delete(day); chip.classList.remove('selected'); }
+      else { selectedDays.add(day); chip.classList.add('selected'); }
+    });
+  });
+
+  document.getElementById('saveScheduleBtn').addEventListener('click', () => {
+    const type = schType.value;
+    let start, end;
+    const today = new Date().toISOString().slice(0, 10);
+
+    if (type === 'ONCE') {
+      start = document.getElementById('schStartDT').value;
+      end = document.getElementById('schEndDT').value;
+      if (!start || !end) { alert('Pick both a start and end date/time.'); return; }
+    } else {
+      const st = document.getElementById('schStartTime').value;
+      const et = document.getElementById('schEndTime').value;
+      if (!st || !et) { alert('Pick both a start and end time.'); return; }
+      start = today + 'T' + st;
+      end = today + 'T' + et;
+      if (type === 'WEEKLY' && selectedDays.size === 0) { alert('Pick at least one day.'); return; }
+    }
+
+    callAction({
+      action: 'setSchedule',
+      type: type,
+      start: start,
+      end: end,
+      days: Array.from(selectedDays).join(',')
+    });
+  });
+
+  // ---------- EV charge ----------
+  const socCurrent = document.getElementById('socCurrent');
+  const socTarget = document.getElementById('socTarget');
+  const socRate = document.getElementById('socRate');
+  const socStartMode = document.getElementById('socStartMode');
+  const socStartLaterField = document.getElementById('socStartLaterField');
+  const socStartDT = document.getElementById('socStartDT');
+  const socPreview = document.getElementById('socPreview');
+
+  socStartMode.addEventListener('change', () => {
+    socStartLaterField.style.display = socStartMode.value === 'later' ? 'block' : 'none';
+    updatePreview();
+  });
+  [socCurrent, socTarget, socRate, socStartDT].forEach(el => el.addEventListener('input', updatePreview));
+
+  function updatePreview() {
+    const cur = parseFloat(socCurrent.value) || 0;
+    const tgt = parseFloat(socTarget.value) || 0;
+    const rate = parseFloat(socRate.value) || 0;
+    const needed = Math.max(tgt - cur, 0);
+    const minutes = needed * rate;
+
+    if (needed <= 0) {
+      socPreview.textContent = 'Target is already at or below current charge — nothing to schedule.';
+      return;
+    }
+
+    const startBase = (socStartMode.value === 'later' && socStartDT.value)
+      ? new Date(socStartDT.value)
+      : new Date();
+    const endDate = new Date(startBase.getTime() + minutes * 60000);
+
+    const hrs = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    const durationStr = (hrs > 0 ? hrs + 'h ' : '') + mins + 'm';
+
+    socPreview.textContent =
+      `Needs ${needed}% more charge → about ${durationStr}. ` +
+      `Will switch OFF automatically at ${endDate.toLocaleString()}.`;
+  }
+  updatePreview();
+
+  document.getElementById('startChargeBtn').addEventListener('click', () => {
+    const params = {
+      action: 'setSOC',
+      current: socCurrent.value,
+      target: socTarget.value,
+      rate: socRate.value
+    };
+    if (socStartMode.value === 'later') {
+      if (!socStartDT.value) { alert('Pick a start date/time.'); return; }
+      params.start = socStartDT.value;
+    }
+    callAction(params);
+  });
+
+  // ---------- cancel ----------
+  document.getElementById('cancelBtn').addEventListener('click', () => callAction({ action: 'cancel' }));
+
+  // ---------- shared fetch / render ----------
+  function render(data) {
+    const isOn = data.state === 'ON';
     bulb.classList.toggle('on', isOn);
     statusEl.classList.toggle('on', isOn);
-    statusEl.textContent = "Status: " + state;
+    statusEl.textContent = 'Status: ' + data.state;
+
+    let detail = '';
+    if (data.mode === 'SCHEDULE' && data.schedule.start) {
+      const label = data.schedule.type === 'ONCE' ? 'One-time'
+        : data.schedule.type === 'DAILY' ? 'Daily' : 'Weekly';
+      detail = `Mode: Schedule (${label})`;
+    } else if (data.mode === 'SOC' && data.soc.end) {
+      const end = new Date(data.soc.end);
+      detail = isOn
+        ? `Charging ${data.soc.current}% → ${data.soc.target}%, off at ${end.toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'})}`
+        : `EV charge schedule set (${data.soc.current}% → ${data.soc.target}%)`;
+    } else {
+      detail = 'Mode: Manual';
+    }
+    statusDetailEl.textContent = detail;
   }
 
   async function getStatus() {
     try {
       const res = await fetch(SCRIPT_URL);
       const data = await res.json();
-      render(data.state);
+      render(data);
     } catch (err) {
-      statusEl.textContent = "Connection error";
+      statusEl.textContent = 'Connection error';
       console.error(err);
     }
   }
 
-  async function setStatus(state) {
-    onBtn.disabled = true;
-    offBtn.disabled = true;
+  async function callAction(params) {
+    const url = SCRIPT_URL + '?' + new URLSearchParams(params).toString();
     try {
-      const res = await fetch(SCRIPT_URL + "?state=" + state);
+      const res = await fetch(url);
       const data = await res.json();
-      render(data.state);
+      render(data);
     } catch (err) {
-      statusEl.textContent = "Connection error";
+      statusEl.textContent = 'Connection error';
       console.error(err);
-    } finally {
-      onBtn.disabled = false;
-      offBtn.disabled = false;
     }
   }
-
-  onBtn.addEventListener('click', () => setStatus('ON'));
-  offBtn.addEventListener('click', () => setStatus('OFF'));
 
   getStatus();
-  setInterval(getStatus, 4000); // keep UI in sync if changed elsewhere
+  setInterval(getStatus, 4000);
 </script>
 
 </body>
