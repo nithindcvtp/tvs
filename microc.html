@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flash Log — MCU code library</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <header class="site-header">
+    <div class="header-row">
+      <div class="brand">
+        <span class="brand-mark">⏚</span>
+        <h1>Flash Log</h1>
+      </div>
+      <a class="admin-link" href="admin.html">Add a program</a>
+    </div>
+    <p class="tagline">Working code for ESP32, ESP8266, and the rest of the bench — searchable and ready to copy.</p>
+  </header>
+
+  <main>
+    <div class="controls">
+      <input type="search" id="search-input" placeholder="Search by title or description…" aria-label="Search programs">
+      <div class="chip-filters" id="chip-filters"></div>
+    </div>
+
+    <p id="status" class="status" hidden></p>
+    <ul id="post-list" class="post-list" aria-live="polite"></ul>
+  </main>
+
+  <footer>
+    Stored in a Google Sheet, served for free from GitHub Pages.
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
