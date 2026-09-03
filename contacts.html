@@ -11,15 +11,28 @@ background:#fff;
 }
 header{
 display:flex;
-justify-content:center;
+justify-content:space-between;
 align-items:center;
-padding:15px;
+padding:12px 15px;
 font-size:20px;
 font-weight:600;
 border-bottom:1px solid #ddd;
 position:sticky;
 top:0;
 background:white;
+z-index:10;
+}
+.headerBtn{
+font-size:14px;
+font-weight:500;
+color:#007AFF;
+cursor:pointer;
+white-space:nowrap;
+}
+.headerBtns{
+display:flex;
+align-items:center;
+gap:14px;
 }
 .search{
 padding:10px;
@@ -41,22 +54,6 @@ cursor:pointer;
 }
 .contact:hover{
 background:#f2f2f7;
-}
-.topbar{
-position:fixed;
-top:10px;
-right:15px;
-display:flex;
-align-items:center;
-gap:14px;
-}
-.plus, .importIcon{
-font-size:24px;
-color:#007AFF;
-cursor:pointer;
-}
-.importIcon{
-font-size:20px;
 }
 .profile{
 position:fixed;
@@ -111,11 +108,14 @@ text-align:center;
 </style>
 </head>
 <body>
-<header>Contacts</header>
-<div class="topbar">
-<div class="importIcon" onclick="document.getElementById('importFile').click()" title="Import from Google Contacts">⬆️</div>
-<div class="plus" onclick="showAdd()">+</div>
+<header>
+<span style="width:60px"></span>
+<span>Contacts</span>
+<div class="headerBtns">
+<span class="headerBtn" onclick="document.getElementById('importFile').click()">Import</span>
+<span class="headerBtn" style="font-size:24px" onclick="showAdd()">+</span>
 </div>
+</header>
 <input type="file" id="importFile" accept=".vcf,.csv,text/vcard,text/csv" style="display:none" onchange="handleImportFile(event)">
 <div class="search">
 <input type="text" placeholder="Search" onkeyup="search(this.value)">
