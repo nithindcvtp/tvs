@@ -3,15 +3,12 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Contacts</title>
-
 <style>
-
 body{
 font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
 margin:0;
 background:#fff;
 }
-
 header{
 display:flex;
 justify-content:center;
@@ -24,11 +21,9 @@ position:sticky;
 top:0;
 background:white;
 }
-
 .search{
 padding:10px;
 }
-
 .search input{
 width:100%;
 padding:10px;
@@ -36,28 +31,33 @@ border-radius:10px;
 border:none;
 background:#f2f2f7;
 font-size:16px;
+box-sizing:border-box;
 }
-
 .contact{
 padding:15px;
 border-bottom:1px solid #eee;
 font-size:18px;
 cursor:pointer;
 }
-
 .contact:hover{
 background:#f2f2f7;
 }
-
-.plus{
+.topbar{
 position:fixed;
 top:10px;
 right:15px;
-font-size:28px;
+display:flex;
+align-items:center;
+gap:14px;
+}
+.plus, .importIcon{
+font-size:24px;
 color:#007AFF;
 cursor:pointer;
 }
-
+.importIcon{
+font-size:20px;
+}
 .profile{
 position:fixed;
 top:0;
@@ -67,200 +67,300 @@ bottom:0;
 background:white;
 display:none;
 padding:20px;
+overflow:auto;
 }
-
 .profile h2{
 margin-top:0;
 }
-
 button{
 padding:10px;
 border:none;
 border-radius:8px;
 margin:5px;
+font-size:15px;
 }
-
 .call{
 background:#34C759;
 color:white;
 }
-
 .edit{
 background:#007AFF;
 color:white;
 }
-
 .delete{
 background:#FF3B30;
 color:white;
 }
-
 .favorite{
 background:#FFD60A;
 }
-
+#importSummary{
+position:fixed;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+background:#333;
+color:white;
+padding:12px 20px;
+border-radius:10px;
+font-size:14px;
+display:none;
+max-width:80%;
+text-align:center;
+}
 </style>
 </head>
-
 <body>
-
 <header>Contacts</header>
+<div class="topbar">
+<div class="importIcon" onclick="document.getElementById('importFile').click()" title="Import from Google Contacts">⬆️</div>
 <div class="plus" onclick="showAdd()">+</div>
-
+</div>
+<input type="file" id="importFile" accept=".vcf,.csv,text/vcard,text/csv" style="display:none" onchange="handleImportFile(event)">
 <div class="search">
 <input type="text" placeholder="Search" onkeyup="search(this.value)">
 </div>
-
 <div id="contacts"></div>
-
 <div id="profile" class="profile"></div>
-
+<div id="importSummary"></div>
 <script>
-
 let contacts=JSON.parse(localStorage.getItem("contacts")||"[]");
 let history=JSON.parse(localStorage.getItem("history")||"[]");
-
 function save(){
 localStorage.setItem("contacts",JSON.stringify(contacts));
 }
-
 function render(list=contacts){
-
 list.sort((a,b)=>a.name.localeCompare(b.name));
-
 const container=document.getElementById("contacts");
 container.innerHTML="";
-
 list.forEach(c=>{
-
 let div=document.createElement("div");
 div.className="contact";
-
 div.innerHTML=c.favorite?"⭐ "+c.name:c.name;
-
 div.onclick=()=>openProfile(c.id);
-
 container.appendChild(div);
-
 });
-
 }
-
 function showAdd(){
-
 let name=prompt("Name");
 if(!name)return;
-
 let number=prompt("Phone Number");
 if(!number)return;
-
 contacts.push({
 id:Date.now(),
 name:name,
 number:number,
 favorite:false
 });
-
 save();
 render();
-
 }
-
 function openProfile(id){
-
 let c=contacts.find(x=>x.id==id);
-
 let p=document.getElementById("profile");
-
 p.innerHTML=`
-
 <h2>${c.name}</h2>
 <p>${c.number}</p>
-
 <button class="call" onclick="call('${c.number}')">Call</button>
-
 <button class="edit" onclick="edit(${c.id})">Edit</button>
-
 <button class="favorite" onclick="favorite(${c.id})">
 ${c.favorite?"Remove Favorite":"Add Favorite"}
 </button>
-
 <button class="delete" onclick="remove(${c.id})">Delete</button>
-
 <button onclick="closeProfile()">Back</button>
-
 `;
-
 p.style.display="block";
-
 }
-
 function closeProfile(){
 document.getElementById("profile").style.display="none";
 }
-
 function call(number){
-
 history.push({
 number:number,
 time:new Date()
 });
-
 localStorage.setItem("history",JSON.stringify(history));
-
 window.location.href="tel:"+number;
-
 }
-
 function edit(id){
-
 let c=contacts.find(x=>x.id==id);
-
 let name=prompt("Edit name",c.name);
 let number=prompt("Edit number",c.number);
-
 if(name)c.name=name;
 if(number)c.number=number;
-
 save();
 render();
 openProfile(id);
-
 }
-
 function remove(id){
-
 contacts=contacts.filter(c=>c.id!=id);
 save();
 render();
 closeProfile();
-
 }
-
 function favorite(id){
-
 let c=contacts.find(x=>x.id==id);
 c.favorite=!c.favorite;
-
 save();
 render();
 openProfile(id);
-
+}
+function search(q){
+q=q.toLowerCase();
+let filtered=contacts.filter(c=>c.name.toLowerCase().includes(q));
+render(filtered);
 }
 
-function search(q){
+/* ---------- Google Contacts import ---------- */
 
-q=q.toLowerCase();
+function normalizeNumber(n){
+return (n||"").replace(/[^\d+]/g,"");
+}
 
-let filtered=contacts.filter(c=>c.name.toLowerCase().includes(q));
+function showImportSummary(text){
+let el=document.getElementById("importSummary");
+el.textContent=text;
+el.style.display="block";
+setTimeout(()=>{el.style.display="none";},4000);
+}
 
-render(filtered);
+function mergeImported(parsedContacts){
+let existingNumbers=new Set(contacts.map(c=>normalizeNumber(c.number)));
+let added=0, skipped=0;
+parsedContacts.forEach(pc=>{
+if(!pc.name || !pc.number){skipped++; return;}
+let norm=normalizeNumber(pc.number);
+if(!norm || existingNumbers.has(norm)){skipped++; return;}
+contacts.push({
+id:Date.now()+Math.floor(Math.random()*100000),
+name:pc.name,
+number:pc.number,
+favorite:false
+});
+existingNumbers.add(norm);
+added++;
+});
+save();
+render();
+showImportSummary(`Imported ${added} contact${added==1?"":"s"}${skipped?`, skipped ${skipped} (missing or duplicate)`:""}.`);
+}
 
+// vCard (.vcf) format - what Google Contacts exports by default
+function parseVCF(text){
+let cards=text.split(/BEGIN:VCARD/i).slice(1);
+let results=[];
+cards.forEach(block=>{
+let name=null;
+let number=null;
+let lines=block.split(/\r\n|\n|\r/);
+lines.forEach(line=>{
+// unfold simple continuations isn't handled here, most exports are single-line
+if(/^FN[:;]/i.test(line) && !name){
+name=line.split(":").slice(1).join(":").trim();
+}
+if(/^TEL/i.test(line) && !number){
+number=line.split(":").slice(1).join(":").trim();
+}
+});
+if(!name){
+// fallback to N: field (Family;Given;...)
+let nLine=lines.find(l=>/^N[:;]/i.test(l));
+if(nLine){
+let parts=nLine.split(":").slice(1).join(":").split(";");
+name=[parts[1],parts[0]].filter(Boolean).join(" ").trim();
+}
+}
+results.push({name:name,number:number});
+});
+return results;
+}
+
+// Simple CSV parser that handles quoted fields
+function parseCSVLine(line){
+let result=[];
+let cur="";
+let inQuotes=false;
+for(let i=0;i<line.length;i++){
+let ch=line[i];
+if(inQuotes){
+if(ch=='"'){
+if(line[i+1]=='"'){cur+='"';i++;}
+else{inQuotes=false;}
+}else{
+cur+=ch;
+}
+}else{
+if(ch=='"'){inQuotes=true;}
+else if(ch==','){result.push(cur);cur="";}
+else{cur+=ch;}
+}
+}
+result.push(cur);
+return result;
+}
+
+function parseCSV(text){
+// handle quoted multi-line fields by doing a light full-text split first
+let rows=[];
+let cur="";
+let inQuotes=false;
+for(let i=0;i<text.length;i++){
+let ch=text[i];
+cur+=ch;
+if(ch=='"') inQuotes=!inQuotes;
+if(ch=='\n' && !inQuotes){
+rows.push(cur);
+cur="";
+}
+}
+if(cur.trim()) rows.push(cur);
+
+let header=parseCSVLine(rows[0].replace(/\r?\n$/,"")).map(h=>h.trim());
+let nameIdx=header.indexOf("Name");
+let givenIdx=header.indexOf("Given Name");
+let familyIdx=header.indexOf("Family Name");
+let phoneIdxs=header.map((h,i)=>/^Phone \d+ - Value$/.test(h)?i:-1).filter(i=>i!=-1);
+
+let results=[];
+for(let r=1;r<rows.length;r++){
+let raw=rows[r].replace(/\r?\n$/,"");
+if(!raw.trim()) continue;
+let cols=parseCSVLine(raw);
+let name = nameIdx!=-1 ? cols[nameIdx] : "";
+if(!name && (givenIdx!=-1 || familyIdx!=-1)){
+name=[cols[givenIdx],cols[familyIdx]].filter(Boolean).join(" ");
+}
+let number="";
+for(let pi of phoneIdxs){
+if(cols[pi] && cols[pi].trim()){number=cols[pi].trim();break;}
+}
+results.push({name:(name||"").trim(),number:number});
+}
+return results;
+}
+
+function handleImportFile(event){
+let file=event.target.files[0];
+if(!file)return;
+let reader=new FileReader();
+reader.onload=function(e){
+let text=e.target.result;
+let parsed;
+if(file.name.toLowerCase().endsWith(".vcf") || /BEGIN:VCARD/i.test(text)){
+parsed=parseVCF(text);
+}else{
+parsed=parseCSV(text);
+}
+mergeImported(parsed);
+};
+reader.onerror=function(){
+showImportSummary("Couldn't read that file.");
+};
+reader.readAsText(file);
+event.target.value="";
 }
 
 render();
-
 </script>
-
 </body>
 </html>
