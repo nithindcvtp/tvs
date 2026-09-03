@@ -1,2399 +1,366 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Contacts</title>
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="theme-color" content="#F7F5F2">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
-  /* ============================================================
-     DESIGN TOKENS
-     Palette: warm off-white surface, near-black ink, a deep teal
-     accent (deliberately not the generic terracotta/neon defaults),
-     muted brick for destructive actions. Avatars get a small,
-     deterministic color per contact — the one signature touch.
-     ============================================================ */
-  :root {
-    --bg: #F7F5F2;
-    --surface: #FFFFFF;
-    --ink: #1C1B1F;
-    --muted: #74706B;
-    --line: #E8E4DE;
-    --accent: #2F5D62;
-    --accent-soft: #DCEAE9;
-    --accent-ink: #1C3F42;
-    --danger: #B3403A;
-    --danger-soft: #F5DEDC;
-    --radius: 14px;
-    --safe-top: env(safe-area-inset-top, 0px);
-    --safe-bottom: env(safe-area-inset-bottom, 0px);
-    --tabbar-height: 58px;
-  }
-
-  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
-
-  html, body {
-    margin: 0;
-    height: 100%;
-    background: var(--bg);
-    color: var(--ink);
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-    -webkit-font-smoothing: antialiased;
-    overscroll-behavior-y: contain;
-  }
-
-  #app { display: flex; flex-direction: column; height: 100%; }
-
-  /* ---------- Header ---------- */
-  header.topbar {
-    padding: calc(10px + var(--safe-top)) 16px 10px;
-    background: var(--bg);
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--line);
-  }
-  header.topbar h1 {
-    font-size: 28px;
-    font-weight: 700;
-    letter-spacing: -0.02em;
-    margin: 0;
-  }
-  .sync-dot {
-    font-size: 12px;
-    color: var(--muted);
-    display: flex;
-    align-items: center;
-    gap: 5px;
-  }
-  .sync-dot .led { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); display: inline-block; }
-  .sync-dot.syncing .led { background: #D98C00; }
-  .sync-dot.synced .led { background: #1A8A3C; }
-  .sync-dot.error .led { background: var(--danger); }
-
-  .icon-btn {
-    width: 38px; height: 38px;
-    border-radius: 50%;
-    border: none;
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    font-size: 20px;
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-  }
-  .icon-btn:active { transform: scale(0.94); }
-
-  /* ---------- Search + filter ---------- */
-  .filter-bar {
-    padding: 10px 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    background: var(--bg);
-  }
-  .search-input {
-    width: 100%;
-    padding: 10px 14px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-size: 16px;
-    color: var(--ink);
-  }
-  .chip-row {
-    display: flex;
-    gap: 8px;
-    overflow-x: auto;
-    padding-bottom: 2px;
-    scrollbar-width: none;
-  }
-  .chip-row::-webkit-scrollbar { display: none; }
-  .chip {
-    flex: 0 0 auto;
-    padding: 6px 14px;
-    border-radius: 999px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    color: var(--muted);
-    font-size: 13px;
-    font-weight: 600;
-    cursor: pointer;
-    white-space: nowrap;
-  }
-  .chip.active {
-    background: var(--accent);
-    border-color: var(--accent);
-    color: white;
-  }
-
-  /* ---------- List ---------- */
-  main#list-view {
-    flex: 1;
-    overflow-y: auto;
-    padding-bottom: calc(90px + var(--tabbar-height) + var(--safe-bottom));
-  }
-  .section-header {
-    position: sticky;
-    top: 0;
-    background: var(--bg);
-    color: var(--muted);
-    font-size: 12px;
-    font-weight: 700;
-    letter-spacing: 0.04em;
-    padding: 6px 16px;
-    z-index: 2;
-  }
-  .contact-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
-    cursor: pointer;
-  }
-  .contact-row:active { background: #F0EEEA; }
-  .avatar {
-    width: 42px; height: 42px;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    color: white;
-    font-weight: 700;
-    font-size: 16px;
-    flex: 0 0 auto;
-  }
-  .contact-meta { min-width: 0; }
-  .contact-name { font-size: 17px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .contact-sub { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .pending-tag { font-size: 11px; color: #D98C00; font-weight: 600; margin-left: 6px; }
-
-  .empty-state {
-    text-align: center;
-    color: var(--muted);
-    padding: 60px 24px;
-    font-size: 15px;
-    line-height: 1.5;
-  }
-
-  /* ---------- Bottom tab bar ---------- */
-  .bottom-tabs {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    height: calc(var(--tabbar-height) + var(--safe-bottom));
-    padding-bottom: var(--safe-bottom);
-    background: var(--surface);
-    border-top: 1px solid var(--line);
-    display: flex;
-    z-index: 15;
-  }
-  .tab-btn {
-    flex: 1;
-    background: none;
-    border: none;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 2px;
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 600;
-    cursor: pointer;
-  }
-  .tab-btn .tab-glyph { font-size: 20px; line-height: 1; }
-  .tab-btn.active { color: var(--accent); }
-
-  /* ---------- Favorite star (detail view) ---------- */
-  .favorite-star {
-    background: none;
-    border: none;
-    font-size: 26px;
-    line-height: 1;
-    cursor: pointer;
-    color: var(--line);
-    padding: 4px;
-  }
-  .favorite-star.active { color: #E0A319; }
-
-  .favorite-tag { font-size: 12px; color: #D98C00; margin-left: 6px; }
-
-  /* ---------- Recents view ---------- */
-  #recentsView {
-    flex: 1;
-    overflow-y: auto;
-    padding-bottom: calc(24px + var(--tabbar-height) + var(--safe-bottom));
-  }
-  .recents-toolbar {
-    display: flex;
-    justify-content: flex-end;
-    padding: 8px 16px;
-  }
-  .recent-row {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-    background: var(--surface);
-    border-bottom: 1px solid var(--line);
-    cursor: pointer;
-  }
-  .recent-row:active { background: #F0EEEA; }
-  .recent-meta { flex: 1; min-width: 0; }
-  .recent-name { font-size: 16px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .recent-sub { font-size: 12px; color: var(--muted); }
-  .recent-call-btn {
-    width: 36px; height: 36px;
-    border-radius: 50%;
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    display: flex; align-items: center; justify-content: center;
-    text-decoration: none;
-    font-size: 16px;
-    flex: 0 0 auto;
-  }
-
-  /* ---------- Keypad view ---------- */
-  #keypadView {
-    flex: 1;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    overflow-y: auto;
-    padding: 16px 16px calc(24px + var(--tabbar-height) + var(--safe-bottom));
-  }
-  .keypad-display {
-    font-size: 32px;
-    font-weight: 300;
-    letter-spacing: 1px;
-    min-height: 44px;
-    text-align: center;
-    margin: 12px 0 8px;
-    word-break: break-all;
-    color: var(--ink);
-  }
-  .keypad-display:empty::before { content: "Enter a number"; color: var(--muted); font-size: 16px; font-weight: 400; }
-  .keypad-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 14px;
-    width: 100%;
-    max-width: 300px;
-    margin: 8px 0;
-  }
-  .keypad-key {
-    aspect-ratio: 1;
-    border-radius: 50%;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-size: 24px;
-    font-weight: 500;
-    color: var(--ink);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-  }
-  .keypad-key:active { background: #F0EEEA; }
-  .keypad-controls {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 24px;
-    width: 100%;
-    max-width: 300px;
-    margin-top: 16px;
-  }
-  .keypad-call-btn {
-    width: 64px; height: 64px;
-    border-radius: 50%;
-    background: #1A8A3C;
-    color: white;
-    font-size: 26px;
-    display: flex; align-items: center; justify-content: center;
-    text-decoration: none;
-    box-shadow: 0 6px 14px rgba(26,138,60,0.35);
-  }
-  .keypad-call-btn.disabled { background: var(--line); color: var(--muted); pointer-events: none; box-shadow: none; }
-  .keypad-backspace {
-    width: 48px; height: 48px;
-    border-radius: 50%;
-    border: none;
-    background: none;
-    color: var(--muted);
-    font-size: 22px;
-    cursor: pointer;
-  }
-  .keypad-spacer { width: 48px; height: 48px; }
-  .keypad-matches {
-    width: 100%;
-    max-width: 340px;
-    margin-top: 18px;
-  }
-  .keypad-match-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 10px 4px;
-    border-bottom: 1px solid var(--line);
-    cursor: pointer;
-  }
-  .keypad-match-name { font-size: 15px; font-weight: 600; }
-  .keypad-match-phone { font-size: 13px; color: var(--muted); }
-
-  /* ---------- Floating add button ---------- */
-  .fab {
-    position: fixed;
-    right: 20px;
-    bottom: calc(24px + var(--tabbar-height) + var(--safe-bottom));
-    width: 58px; height: 58px;
-    border-radius: 50%;
-    background: var(--accent);
-    color: white;
-    font-size: 28px;
-    border: none;
-    box-shadow: 0 6px 16px rgba(47,93,98,0.35);
-    display: flex; align-items: center; justify-content: center;
-    cursor: pointer;
-    z-index: 10;
-  }
-  .fab:active { transform: scale(0.95); }
-
-  /* ---------- Full-screen overlay (detail / form) ---------- */
-  .overlay {
-    position: fixed; inset: 0;
-    background: var(--bg);
-    display: flex;
-    flex-direction: column;
-    transform: translateX(100%);
-    transition: transform 0.25s ease;
-    z-index: 20;
-  }
-  .overlay.open { transform: translateX(0); }
-  .overlay-header {
-    padding: calc(10px + var(--safe-top)) 16px 10px;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    border-bottom: 1px solid var(--line);
-    background: var(--bg);
-  }
-  .overlay-header .title { font-size: 17px; font-weight: 700; }
-  .text-btn {
-    background: none; border: none;
-    color: var(--accent);
-    font-size: 16px;
-    font-weight: 600;
-    padding: 6px 4px;
-    cursor: pointer;
-  }
-  .text-btn.danger { color: var(--danger); }
-  .overlay-body { flex: 1; overflow-y: auto; padding: 16px; padding-bottom: calc(24px + var(--safe-bottom)); }
-
-  /* Detail view */
-  .detail-header { text-align: center; padding: 18px 0 22px; }
-  .detail-avatar {
-    width: 84px; height: 84px; border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    color: white; font-size: 30px; font-weight: 700;
-    margin: 0 auto 10px;
-  }
-  .detail-name { font-size: 22px; font-weight: 700; }
-  .detail-sub { color: var(--muted); font-size: 14px; margin-top: 2px; }
-
-  .action-row {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 10px;
-    margin-bottom: 20px;
-  }
-  .action-btn {
-    flex: 1 1 27%;
-    min-width: 84px;
-    background: var(--surface);
-    border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 12px 8px;
-    text-align: center;
-    color: var(--accent-ink);
-    text-decoration: none;
-    font-size: 13px;
-    font-weight: 600;
-  }
-  .action-btn .glyph { display: block; font-size: 20px; margin-bottom: 4px; }
-  .action-btn.disabled { color: var(--line); pointer-events: none; }
-
-  .info-card {
-    background: var(--surface);
-    border-radius: var(--radius);
-    border: 1px solid var(--line);
-    overflow: hidden;
-    margin-bottom: 16px;
-  }
-  .info-row {
-    padding: 12px 14px;
-    border-bottom: 1px solid var(--line);
-  }
-  .info-row:last-child { border-bottom: none; }
-  .info-label { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
-  .info-value { font-size: 15px; word-break: break-word; }
-  .info-value:empty::after { content: "—"; color: var(--line); }
-
-  .danger-btn {
-    width: 100%;
-    padding: 13px;
-    border-radius: var(--radius);
-    border: 1px solid var(--danger-soft);
-    background: var(--danger-soft);
-    color: var(--danger);
-    font-size: 15px;
-    font-weight: 700;
-    cursor: pointer;
-  }
-
-  .secondary-btn {
-    width: 100%;
-    padding: 11px;
-    border-radius: 10px;
-    border: 1px solid var(--accent);
-    background: var(--accent-soft);
-    color: var(--accent-ink);
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    margin-top: 2px;
-  }
-  .secondary-btn:disabled { opacity: 0.6; }
-
-  /* ---------- Share sheet (bottom action sheet) ---------- */
-  .sheet-backdrop {
-    position: fixed; inset: 0;
-    background: rgba(0,0,0,0.35);
-    z-index: 30;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.2s ease;
-  }
-  .sheet-backdrop.open { opacity: 1; pointer-events: auto; }
-  .share-sheet {
-    position: fixed;
-    left: 0; right: 0; bottom: 0;
-    background: var(--surface);
-    border-radius: 18px 18px 0 0;
-    padding: 8px 16px calc(16px + var(--safe-bottom));
-    transform: translateY(100%);
-    transition: transform 0.25s ease;
-    z-index: 31;
-  }
-  .sheet-backdrop.open .share-sheet { transform: translateY(0); }
-  .share-sheet .sheet-title {
-    text-align: center;
-    font-size: 13px;
-    color: var(--muted);
-    padding: 10px 0 6px;
-  }
-  .share-option {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    width: 100%;
-    background: none;
-    border: none;
-    border-top: 1px solid var(--line);
-    padding: 14px 6px;
-    font-size: 16px;
-    font-weight: 600;
-    color: var(--ink);
-    text-decoration: none;
-    cursor: pointer;
-  }
-  .share-option .glyph { font-size: 20px; width: 24px; text-align: center; }
-  .share-option.cancel {
-    justify-content: center;
-    color: var(--danger);
-    margin-top: 8px;
-    border-top: none;
-    background: var(--danger-soft);
-    border-radius: 12px;
-  }
-
-  /* QR code sheet — a centered card rather than a bottom sheet, since a
-     square code reads better centered than pinned to the bottom edge. */
-  .qr-sheet {
-    position: fixed;
-    left: 50%; top: 50%;
-    transform: translate(-50%, -50%) scale(0.95);
-    opacity: 0;
-    background: var(--surface);
-    border-radius: 20px;
-    padding: 22px 20px calc(20px + var(--safe-bottom));
-    width: min(320px, 88vw);
-    z-index: 31;
-    text-align: center;
-    transition: transform 0.2s ease, opacity 0.2s ease;
-  }
-  .sheet-backdrop.open .qr-sheet { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-  .qr-code-wrap {
-    background: #fff;
-    border-radius: 14px;
-    padding: 16px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    min-height: 220px;
-    margin: 4px 0 14px;
-  }
-  .qr-contact-name { font-weight: 700; font-size: 16px; margin-bottom: 4px; }
-  .qr-hint { font-size: 13px; color: var(--muted); line-height: 1.4; margin-bottom: 18px; }
-
-  /* Form view */
-  .field { margin-bottom: 14px; }
-  .field label {
-    display: block;
-    font-size: 12px;
-    color: var(--muted);
-    margin-bottom: 5px;
-    font-weight: 600;
-  }
-  .field input, .field select {
-    width: 100%;
-    padding: 11px 12px;
-    border-radius: 10px;
-    border: 1px solid var(--line);
-    background: var(--surface);
-    font-size: 16px;
-    color: var(--ink);
-  }
-  .field-row { display: flex; gap: 10px; }
-  .field-row .field { flex: 1; }
-  .hint { font-size: 12px; color: var(--muted); margin-top: -8px; margin-bottom: 14px; }
-
-  /* Settings overlay */
-  .settings-group { margin-bottom: 22px; }
-  .settings-group h3 { font-size: 14px; margin: 0 0 8px; }
-  .option-list { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; margin-bottom: 8px; }
-  .option-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-bottom: 1px solid var(--line); font-size: 15px; }
-  .option-item:last-child { border-bottom: none; }
-  .option-item button { background: none; border: none; color: var(--danger); font-size: 13px; font-weight: 600; }
-  .add-row { display: flex; gap: 8px; }
-  .add-row input { flex: 1; }
-  .add-row button { padding: 0 16px; border-radius: 10px; border: none; background: var(--accent); color: white; font-weight: 600; }
-
-  .config-note { font-size: 12px; color: var(--muted); line-height: 1.5; }
-
-  /* ---------- Auth screen (login / first-time setup) ---------- */
-  .auth-screen {
-    position: fixed; inset: 0; z-index: 60;
-    background: var(--bg);
-    display: flex; align-items: center; justify-content: center;
-    padding: 24px;
-  }
-  .auth-card { width: 100%; max-width: 340px; }
-  .auth-card h1 { font-size: 26px; margin: 0 0 4px; letter-spacing: -0.02em; }
-  .auth-card .sub { color: var(--muted); font-size: 14px; margin: 0 0 20px; line-height: 1.4; }
-  .auth-error { color: var(--danger); font-size: 13px; margin-top: 10px; min-height: 16px; }
-  .auth-hint { color: var(--muted); font-size: 12px; margin-top: 16px; line-height: 1.5; text-align: center; }
+body{
+font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto;
+margin:0;
+background:#fff;
+}
+header{
+display:flex;
+justify-content:space-between;
+align-items:center;
+padding:12px 15px;
+font-size:20px;
+font-weight:600;
+border-bottom:1px solid #ddd;
+position:sticky;
+top:0;
+background:white;
+z-index:10;
+}
+.headerBtn{
+font-size:14px;
+font-weight:500;
+color:#007AFF;
+cursor:pointer;
+white-space:nowrap;
+}
+.headerBtns{
+display:flex;
+align-items:center;
+gap:14px;
+}
+.search{
+padding:10px;
+}
+.search input{
+width:100%;
+padding:10px;
+border-radius:10px;
+border:none;
+background:#f2f2f7;
+font-size:16px;
+box-sizing:border-box;
+}
+.contact{
+padding:15px;
+border-bottom:1px solid #eee;
+font-size:18px;
+cursor:pointer;
+}
+.contact:hover{
+background:#f2f2f7;
+}
+.profile{
+position:fixed;
+top:0;
+left:0;
+right:0;
+bottom:0;
+background:white;
+display:none;
+padding:20px;
+overflow:auto;
+}
+.profile h2{
+margin-top:0;
+}
+button{
+padding:10px;
+border:none;
+border-radius:8px;
+margin:5px;
+font-size:15px;
+}
+.call{
+background:#34C759;
+color:white;
+}
+.edit{
+background:#007AFF;
+color:white;
+}
+.delete{
+background:#FF3B30;
+color:white;
+}
+.favorite{
+background:#FFD60A;
+}
+#importSummary{
+position:fixed;
+bottom:20px;
+left:50%;
+transform:translateX(-50%);
+background:#333;
+color:white;
+padding:12px 20px;
+border-radius:10px;
+font-size:14px;
+display:none;
+max-width:80%;
+text-align:center;
+}
 </style>
 </head>
 <body>
-
-<div id="authScreen" class="auth-screen" style="display:none;">
-  <div class="auth-card">
-    <h1 id="authTitle">Log In</h1>
-    <p class="sub" id="authSubtitle">Sign in to see your contacts.</p>
-    <div class="field"><label>Username</label><input type="text" id="authUsername" autocomplete="username"></div>
-    <div class="field"><label>Password</label><input type="password" id="authPassword" autocomplete="current-password"></div>
-    <div class="field" id="authConfirmField" style="display:none;"><label>Confirm password</label><input type="password" id="authConfirmPassword"></div>
-    <button class="secondary-btn" id="authSubmitBtn" style="background:var(--accent); color:white; border-color:var(--accent);">Log In</button>
-    <div class="auth-error" id="authError"></div>
-    <p class="auth-hint" id="authHint"></p>
-  </div>
+<header>
+<span style="width:60px"></span>
+<span>Contacts</span>
+<div class="headerBtns">
+<span class="headerBtn" onclick="document.getElementById('importFile').click()">Import</span>
+<span class="headerBtn" style="font-size:24px" onclick="showAdd()">+</span>
 </div>
-
-<div id="app" style="display:none;">
-
-  <header class="topbar">
-    <h1>Contacts</h1>
-    <div style="display:flex; align-items:center; gap:10px;">
-      <div class="sync-dot" id="syncIndicator"><span class="led"></span><span id="syncText">Ready</span></div>
-      <button class="icon-btn" id="settingsBtn" title="Settings">⚙</button>
-    </div>
-  </header>
-
-  <div class="filter-bar" id="filterBar">
-    <input type="text" class="search-input" id="searchInput" placeholder="Search contacts">
-    <div class="chip-row" id="categoryChips"></div>
-    <div class="chip-row" id="favGroupChips" style="display:none;"></div>
-  </div>
-
-  <main id="list-view"></main>
-
-  <div id="recentsView" style="display:none;">
-    <div class="recents-toolbar">
-      <button class="text-btn danger" id="clearRecentsBtn">Clear Recents</button>
-    </div>
-    <div id="recentsList"></div>
-  </div>
-
-  <div id="keypadView" style="display:none;">
-    <div class="keypad-display" id="keypadDisplay"></div>
-    <div class="keypad-grid">
-      <button class="keypad-key" data-digit="1">1</button>
-      <button class="keypad-key" data-digit="2">2</button>
-      <button class="keypad-key" data-digit="3">3</button>
-      <button class="keypad-key" data-digit="4">4</button>
-      <button class="keypad-key" data-digit="5">5</button>
-      <button class="keypad-key" data-digit="6">6</button>
-      <button class="keypad-key" data-digit="7">7</button>
-      <button class="keypad-key" data-digit="8">8</button>
-      <button class="keypad-key" data-digit="9">9</button>
-      <button class="keypad-key" data-digit="*">*</button>
-      <button class="keypad-key" data-digit="0">0</button>
-      <button class="keypad-key" data-digit="#">#</button>
-    </div>
-    <div class="keypad-controls">
-      <div class="keypad-spacer"></div>
-      <a class="keypad-call-btn disabled" id="keypadCallBtn">📞</a>
-      <button class="keypad-backspace" id="keypadBackspaceBtn">⌫</button>
-    </div>
-    <div class="keypad-matches" id="keypadMatches"></div>
-  </div>
-
-  <button class="fab" id="addBtn">＋</button>
-
-  <nav class="bottom-tabs" id="bottomTabs">
-    <button class="tab-btn active" data-tab="contacts"><span class="tab-glyph">👤</span>Contacts</button>
-    <button class="tab-btn" data-tab="favorites"><span class="tab-glyph">★</span>Favorites</button>
-    <button class="tab-btn" data-tab="recents"><span class="tab-glyph">🕐</span>Recents</button>
-    <button class="tab-btn" data-tab="keypad"><span class="tab-glyph">⌨</span>Keypad</button>
-  </nav>
-
-  <!-- Detail overlay -->
-  <div class="overlay" id="detailOverlay">
-    <div class="overlay-header">
-      <button class="text-btn" id="detailCloseBtn">Close</button>
-      <div class="title">Contact</div>
-      <button class="text-btn" id="detailEditBtn">Edit</button>
-    </div>
-    <div class="overlay-body" id="detailBody"></div>
-  </div>
-
-  <!-- Add/Edit form overlay -->
-  <div class="overlay" id="formOverlay">
-    <div class="overlay-header">
-      <button class="text-btn" id="formCancelBtn">Cancel</button>
-      <div class="title" id="formTitle">New Contact</div>
-      <button class="text-btn" id="formSaveBtn">Save</button>
-    </div>
-    <div class="overlay-body">
-      <div class="field">
-        <label>Photo</label>
-        <div style="display:flex; align-items:center; gap:12px;">
-          <div id="photoPreviewWrap" style="width:64px; height:64px; border-radius:50%; overflow:hidden; display:flex; align-items:center; justify-content:center; flex:0 0 auto;">
-            <img id="photoPreviewImg" style="width:100%; height:100%; object-fit:cover; display:none;">
-            <span id="photoPreviewInitials" style="color:white; font-weight:700; font-size:16px;"></span>
-          </div>
-          <div style="flex:1;">
-            <input type="file" accept="image/*" id="fPhotoInput" style="font-size:13px; width:100%;">
-            <button type="button" class="text-btn danger" id="removePhotoBtn" style="padding:4px 0 0; font-size:13px; display:none;">Remove photo</button>
-          </div>
-        </div>
-      </div>
-      <div class="field"><label>Name</label><input type="text" id="fName" placeholder="Full name"></div>
-      <div class="field-row">
-        <div class="field"><label>Phone</label><input type="tel" id="fPhone" placeholder="Phone number"></div>
-        <div class="field"><label>Email</label><input type="email" id="fEmail" placeholder="Email"></div>
-      </div>
-      <div class="field"><label>Address</label><input type="text" id="fAddress" placeholder="Address"></div>
-      <div class="field"><label>Notes</label><input type="text" id="fNotes" placeholder="Notes"></div>
-      <div class="field-row">
-        <div class="field">
-          <label>Category</label>
-          <input type="text" id="fCategory" list="categoryOptions" placeholder="e.g. Computer">
-          <datalist id="categoryOptions"></datalist>
-        </div>
-        <div class="field">
-          <label>Blood Group</label>
-          <select id="fBloodGroup">
-            <option value=""></option>
-          </select>
-        </div>
-      </div>
-      <div class="field">
-        <label>Gender</label>
-        <select id="fGender">
-          <option value=""></option>
-          <option value="Male">Male</option>
-          <option value="Female">Female</option>
-        </select>
-      </div>
-
-      <div class="field">
-        <label>Groups</label>
-        <div class="chip-row" id="formGroupChips"></div>
-        <div class="hint">Tap to add this contact to one or more groups. Manage the list of groups from Settings.</div>
-      </div>
-
-      <div class="field-row">
-        <div class="field">
-          <label>WhatsApp number</label>
-          <input type="tel" id="fWhatsApp" placeholder="e.g. +919876543210">
-        </div>
-        <div class="field"><label>Telegram username</label><input type="text" id="fTelegram" placeholder="e.g. username (no @)"></div>
-      </div>
-      <div class="hint">Leave WhatsApp or Telegram blank to use the phone number above automatically.</div>
-
-      <div class="field">
-        <label>Location</label>
-        <div class="field-row">
-          <div class="field"><input type="number" step="any" id="fLatitude" placeholder="Latitude"></div>
-          <div class="field"><input type="number" step="any" id="fLongitude" placeholder="Longitude"></div>
-        </div>
-        <button type="button" class="secondary-btn" id="useLocationBtn">📍 Use My Current Location</button>
-        <div class="hint" id="locationStatus" style="margin-top:0;"></div>
-      </div>
-    </div>
-  </div>
-
-  <!-- Settings overlay -->
-  <div class="overlay" id="settingsOverlay">
-    <div class="overlay-header">
-      <button class="text-btn" id="settingsCloseBtn">Close</button>
-      <div class="title">Settings</div>
-      <div style="width:50px;"></div>
-    </div>
-    <div class="overlay-body">
-      <div class="settings-group">
-        <h3>Account</h3>
-        <p class="config-note" id="accountInfoText">Logged in.</p>
-        <button class="secondary-btn" id="logoutBtn">Log Out</button>
-      </div>
-      <div class="settings-group">
-        <h3>Backup &amp; Restore</h3>
-        <p class="config-note">Backs up only your own contacts to a file you keep. Restoring replaces all of your current contacts with what's in that file.</p>
-        <button class="secondary-btn" id="backupContactsBtn" style="width:100%;">⬇️ Backup My Contacts</button>
-        <button class="secondary-btn" id="restoreContactsBtn" style="width:100%; margin-top:8px;">⬆️ Restore From Backup</button>
-        <input type="file" id="restoreFileInput" accept="application/json" style="display:none;">
-        <div class="hint" id="backupRestoreStatus" style="margin-top:8px; margin-bottom:0;"></div>
-      </div>
-      <div class="settings-group" id="manageUsersGroup" style="display:none;">
-        <h3>Manage Users</h3>
-        <div class="option-list" id="userOptionList"></div>
-        <div class="add-row" style="flex-direction:column; gap:8px;">
-          <input type="text" id="newUsernameInput" placeholder="New username">
-          <input type="password" id="newUserPasswordInput" placeholder="Temporary password">
-          <button id="addUserBtn" style="width:100%;">Create Login</button>
-        </div>
-        <div class="hint" id="addUserStatus" style="margin-top:8px; margin-bottom:0;"></div>
-      </div>
-      <div class="settings-group">
-        <h3>Google Sheet connection</h3>
-        <div class="field">
-          <label>Apps Script Web App URL</label>
-          <input type="text" id="sheetUrlInput" placeholder="https://script.google.com/macros/s/.../exec">
-        </div>
-        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px;">
-          <span id="sheetUrlStatus" style="font-size:12px; color:var(--muted);"></span>
-          <button id="saveSheetUrlBtn">Save &amp; Reconnect</button>
-        </div>
-      </div>
-      <div class="settings-group">
-        <h3>Category options</h3>
-        <div class="option-list" id="categoryOptionList"></div>
-        <div class="add-row">
-          <input type="text" id="newCategoryInput" placeholder="Add a category">
-          <button id="addCategoryBtn">Add</button>
-        </div>
-      </div>
-      <div class="settings-group">
-        <h3>Blood group options</h3>
-        <div class="option-list" id="bloodOptionList"></div>
-        <div class="add-row">
-          <input type="text" id="newBloodInput" placeholder="Add a blood group">
-          <button id="addBloodBtn">Add</button>
-        </div>
-      </div>
-      <div class="settings-group">
-        <h3>Group options</h3>
-        <p class="config-note">Groups let you organize favorites into small folders like Family or Work — a contact can belong to more than one.</p>
-        <div class="option-list" id="groupOptionList"></div>
-        <div class="add-row">
-          <input type="text" id="newGroupInput" placeholder="Add a group (e.g. Family)">
-          <button id="addGroupBtn">Add</button>
-        </div>
-      </div>
-      <div class="settings-group">
-        <p class="config-note">
-          The Sheet URL above is saved in this browser, so it only affects visits from this device. Changing it here does not edit the file itself — if you want every visitor's default to change, also update the WEB_APP_URL constant near the top of this file's &lt;script&gt;.
-        </p>
-      </div>
-    </div>
-  </div>
-
+</header>
+<input type="file" id="importFile" accept=".vcf,.csv,text/vcard,text/csv" style="display:none" onchange="handleImportFile(event)">
+<div class="search">
+<input type="text" placeholder="Search" onkeyup="search(this.value)">
 </div>
-
-<div class="sheet-backdrop" id="shareSheetBackdrop">
-  <div class="share-sheet" id="shareSheet">
-    <div class="sheet-title">Share Contact</div>
-    <a class="share-option" id="shareViaMessage" href="#"><span class="glyph">💬</span>Message</a>
-    <a class="share-option" id="shareViaWhatsApp" href="#"><span class="glyph">📱</span>WhatsApp</a>
-    <a class="share-option" id="shareViaTelegram" href="#"><span class="glyph">✈️</span>Telegram</a>
-    <a class="share-option" id="shareViaMore" href="#" style="display:none;"><span class="glyph">⋯</span>More options</a>
-    <button class="share-option cancel" id="shareSheetCancelBtn">Cancel</button>
-  </div>
-</div>
-
-<div class="sheet-backdrop" id="qrSheetBackdrop">
-  <div class="qr-sheet" id="qrSheet">
-    <div class="sheet-title">Scan to add contact</div>
-    <div class="qr-code-wrap" id="qrCodeCanvas"></div>
-    <div class="qr-contact-name" id="qrContactName"></div>
-    <div class="qr-hint">Point a phone camera at this code — it'll offer to add this contact straight to the address book, no app or typing needed.</div>
-    <button class="share-option cancel" id="qrSheetCancelBtn">Close</button>
-  </div>
-</div>
-
+<div id="contacts"></div>
+<div id="profile" class="profile"></div>
+<div id="importSummary"></div>
 <script>
-/* ============================================================
-   CONFIGURATION
-   DEFAULT_WEB_APP_URL is baked in so the site works immediately for
-   any visitor with no setup. Settings lets a user override this in
-   their own browser (saved via localStorage on real deployments —
-   e.g. once this is hosted on GitHub Pages — though it won't persist
-   across reloads while previewing the file inside Claude's chat
-   sandbox, which blocks that storage API).
-   ============================================================ */
-const DEFAULT_WEB_APP_URL = "https://script.google.com/macros/s/AKfycbzCzyQJ3oOi6HPcBbTR69tTUsUkCW0GKfhbgmU7qHxu8L7loLQWqY27BYxR7eXDDApI/exec";
-const URL_STORAGE_KEY = "contactManagerWebAppUrl";
-
-function loadWebAppUrl() {
-  try {
-    const saved = window.localStorage.getItem(URL_STORAGE_KEY);
-    return saved && saved.trim() ? saved.trim() : DEFAULT_WEB_APP_URL;
-  } catch (e) {
-    return DEFAULT_WEB_APP_URL; // storage blocked (private mode, sandboxed preview, etc.)
-  }
+let contacts=JSON.parse(localStorage.getItem("contacts")||"[]");
+let history=JSON.parse(localStorage.getItem("history")||"[]");
+function save(){
+localStorage.setItem("contacts",JSON.stringify(contacts));
 }
-
-function saveWebAppUrl(url) {
-  try {
-    window.localStorage.setItem(URL_STORAGE_KEY, url);
-    return true;
-  } catch (e) {
-    return false; // couldn't persist — caller still gets an in-memory update this session
-  }
-}
-
-let WEB_APP_URL = loadWebAppUrl();
-
-/* ---------------- Session (login) ----------------
-   Each user's data is scoped server-side to whoever the session token
-   belongs to. The token is what's persisted here — never the password. */
-const SESSION_STORAGE_KEY = "contactManagerSession";
-
-function loadSession() {
-  try {
-    const raw = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : null;
-  } catch (e) {
-    return null;
-  }
-}
-function saveSession(s) {
-  try { window.localStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(s)); } catch (e) { /* ignore */ }
-}
-function clearSession() {
-  try { window.localStorage.removeItem(SESSION_STORAGE_KEY); } catch (e) { /* ignore */ }
-}
-
-let session = loadSession(); // { token, username, isAdmin } | null
-let authScreenMode = "login"; // "login" | "bootstrap"
-
-const DEFAULT_CATEGORIES = ["Computer", "Electrical", "Family", "Work", "Personal", "Medical", "Other"];
-const DEFAULT_BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
-const DEFAULT_GROUPS = ["Family", "Work"];
-
-// In-memory only (see note above about why this isn't in localStorage
-// inside Claude's own preview sandbox; once deployed to GitHub Pages,
-// Loaded from the Sheet's "Options" tab (via doGet) so custom categories
-// and blood groups persist for good and are shared across every visitor.
-let sheetCategories = [];
-let sheetBloodGroups = [];
-let sheetGroups = [];
-
-let contacts = [];       // authoritative-ish local cache from the Sheet
-let selectedContact = null;
-let editingRow = null;   // row number currently being edited, or null when adding
-let pendingOps = 0;
-
-let activeTab = "contacts"; // "contacts" | "favorites" | "recents" | "keypad"
-let keypadDigits = "";
-
-// Photo state for whichever contact is currently open in the form.
-// currentPhotoUrl: the already-saved Drive URL (if editing a contact that has one).
-// pendingPhotoBase64/pendingPhotoMimeType: a newly picked file, not yet uploaded.
-// photoRemoved: user explicitly cleared the photo.
-let currentPhotoUrl = "";
-let pendingPhotoBase64 = null;
-let pendingPhotoMimeType = null;
-let photoRemoved = false;
-
-// Groups currently toggled "on" in the open add/edit form (multi-select).
-let selectedFormGroups = [];
-
-/* ---------------- Recents (call log) ----------------
-   Unlike contacts/categories, this is per-device usage history, not
-   shared data — so it's saved in this browser only, same pattern (and
-   same caveat) as the Web App URL override above. */
-const RECENTS_STORAGE_KEY = "contactManagerRecents";
-const MAX_RECENTS = 50;
-
-function loadRecents() {
-  try {
-    const raw = window.localStorage.getItem(RECENTS_STORAGE_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch (e) {
-    return [];
-  }
-}
-
-function saveRecents(list) {
-  try { window.localStorage.setItem(RECENTS_STORAGE_KEY, JSON.stringify(list)); } catch (e) { /* ignore */ }
-}
-
-let recents = loadRecents();
-
-function addRecentCall(name, phone) {
-  const entry = { name: name || null, phone, time: Date.now() };
-  recents.unshift(entry);
-  if (recents.length > MAX_RECENTS) recents = recents.slice(0, MAX_RECENTS);
-  saveRecents(recents);
-  if (activeTab === "recents") renderRecents();
-}
-
-function isFavorite(c) {
-  return asText(c.Favorite).trim().toLowerCase() === "yes";
-}
-
-// Groups is stored as a single comma-separated string on the contact
-// row (e.g. "Family, Work") so a contact can belong to more than one.
-function contactGroups(c) {
-  return asText(c.Groups).split(",").map(s => s.trim()).filter(Boolean);
-}
-
-/* ---------------- Helpers ---------------- */
-
-// Google Sheets sometimes stores a plain-digit phone number as an actual
-// Number rather than text. Any raw value from the Sheet gets funneled
-// through this before we call string-only methods on it, so a stray
-// number/date/null can never silently throw and break the UI.
-function asText(value) {
-  if (value === null || value === undefined) return "";
-  return String(value);
-}
-
-// Strips everything but digits so "987 654 3210" and "987-654-3210"
-// are recognized as the same number when checking for duplicates.
-function normalizePhone(value) {
-  return asText(value).replace(/\D/g, "");
-}
-
-function findDuplicatePhoneContact(phone, excludeRow) {
-  const normalized = normalizePhone(phone);
-  if (!normalized) return null;
-  return contacts.find(c => c.row !== excludeRow && normalizePhone(c.Phone) === normalized) || null;
-}
-
-function toTitleCase(text) {
-  text = asText(text);
-  if (!text) return text;
-  return text.trim().split(/\s+/).map(w => w[0].toUpperCase() + w.slice(1).toLowerCase()).join(" ");
-}
-
-function initials(name) {
-  name = asText(name);
-  const parts = name.trim().split(/\s+/);
-  const first = parts[0] ? parts[0][0] : "";
-  const last = parts.length > 1 ? parts[parts.length - 1][0] : "";
-  return (first + last).toUpperCase() || "?";
-}
-
-const AVATAR_PALETTE = ["#2F5D62", "#7A5C3E", "#5C6B73", "#8C4A45", "#4E6B4F", "#5A4E7A", "#7A6A2F"];
-function avatarColor(name) {
-  name = asText(name);
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) >>> 0;
-  return AVATAR_PALETTE[hash % AVATAR_PALETTE.length];
-}
-
-/* ---------------- Photo preview / picking ---------------- */
-
-function updatePhotoPreview() {
-  const img = document.getElementById("photoPreviewImg");
-  const initialsEl = document.getElementById("photoPreviewInitials");
-  const wrap = document.getElementById("photoPreviewWrap");
-  const removeBtn = document.getElementById("removePhotoBtn");
-  const name = document.getElementById("fName").value || "?";
-
-  let src = null;
-  if (!photoRemoved) {
-    if (pendingPhotoBase64) src = `data:${pendingPhotoMimeType};base64,${pendingPhotoBase64}`;
-    else if (currentPhotoUrl) src = currentPhotoUrl;
-  }
-
-  if (src) {
-    img.src = src;
-    img.style.display = "block";
-    initialsEl.style.display = "none";
-    wrap.style.background = "transparent";
-    removeBtn.style.display = "inline-block";
-  } else {
-    img.style.display = "none";
-    initialsEl.style.display = "block";
-    initialsEl.textContent = initials(name);
-    wrap.style.background = avatarColor(name);
-    removeBtn.style.display = "none";
-  }
-}
-
-function setSync(state, text) {
-  const el = document.getElementById("syncIndicator");
-  el.className = "sync-dot " + state;
-  document.getElementById("syncText").textContent = text;
-}
-
-/* ---------------- Networking ----------------
-   GET works cross-origin against an Apps Script Web App out of the box.
-   POST must use Content-Type: text/plain to avoid a CORS preflight that
-   Apps Script doesn't handle — the body is still JSON, Apps Script reads
-   it from e.postData.contents regardless of the declared content type. */
-
-async function apiGet() {
-  const url = WEB_APP_URL + (session && session.token ? ("?token=" + encodeURIComponent(session.token)) : "");
-  const res = await fetch(url, { method: "GET" });
-  return res.json();
-}
-
-async function apiPost(payload) {
-  const body = Object.assign({}, payload);
-  if (session && session.token && !body.token) body.token = session.token;
-  const res = await fetch(WEB_APP_URL, {
-    method: "POST",
-    headers: { "Content-Type": "text/plain;charset=utf-8" },
-    body: JSON.stringify(body)
-  });
-  return res.json();
-}
-
-async function refreshFromSheet(showSyncing) {
-  if (showSyncing) { pendingOps++; setSync("syncing", "Syncing…"); }
-  try {
-    const result = await apiGet();
-    if (result.status === "unauthenticated") {
-      session = null;
-      clearSession();
-      showAuthScreen(result.hasUsers);
-      return;
-    }
-    if (result.status !== "ok") throw new Error(result.message || "Unknown error");
-    showApp();
-    contacts = result.contacts;
-    sheetCategories = result.categories || [];
-    sheetBloodGroups = result.bloodGroups || [];
-    sheetGroups = result.groups || [];
-    rebuildCategorySuggestions();
-    rebuildBloodGroupSelect();
-    renderList();
-    renderCategoryChips();
-  } catch (err) {
-    setSync("error", "Sync failed");
-    console.error(err);
-  } finally {
-    if (showSyncing) {
-      pendingOps = Math.max(0, pendingOps - 1);
-      if (pendingOps === 0) setSync("synced", `Synced · ${contacts.length}`);
-    }
-  }
-}
-
-/* ---------------- Auth screen / account UI ---------------- */
-
-function showAuthScreen(hasUsers) {
-  document.getElementById("app").style.display = "none";
-  document.getElementById("authScreen").style.display = "flex";
-  authScreenMode = hasUsers ? "login" : "bootstrap";
-  const isBootstrap = authScreenMode === "bootstrap";
-  document.getElementById("authTitle").textContent = isBootstrap ? "Set Up Your Account" : "Log In";
-  document.getElementById("authSubtitle").textContent = isBootstrap
-    ? "No accounts exist yet. Create the first (admin) login."
-    : "Sign in to see your contacts.";
-  document.getElementById("authConfirmField").style.display = isBootstrap ? "block" : "none";
-  document.getElementById("authSubmitBtn").textContent = isBootstrap ? "Create Account" : "Log In";
-  document.getElementById("authError").textContent = "";
-  document.getElementById("authHint").textContent = isBootstrap
-    ? ""
-    : "New logins are created by an admin from Settings, not from here.";
-  document.getElementById("authUsername").value = "";
-  document.getElementById("authPassword").value = "";
-  document.getElementById("authConfirmPassword").value = "";
-}
-
-function showApp() {
-  document.getElementById("authScreen").style.display = "none";
-  document.getElementById("app").style.display = "flex";
-  updateAccountUI();
-}
-
-function updateAccountUI() {
-  if (!session) return;
-  const info = document.getElementById("accountInfoText");
-  if (info) info.textContent = `Logged in as ${session.username}${session.isAdmin ? " (admin)" : ""}.`;
-  const manageGroup = document.getElementById("manageUsersGroup");
-  if (manageGroup) manageGroup.style.display = session.isAdmin ? "block" : "none";
-}
-
-async function loadUsersList() {
-  const listEl = document.getElementById("userOptionList");
-  listEl.innerHTML = '<div class="option-item"><span>Loading…</span></div>';
-  try {
-    const result = await apiPost({ action: "listUsers" });
-    if (result.status !== "ok") throw new Error(result.message || "Could not load users.");
-    listEl.innerHTML = "";
-    if (result.users.length === 0) {
-      listEl.innerHTML = '<div class="option-item"><span>No users yet.</span></div>';
-      return;
-    }
-    result.users.forEach(u => {
-      const row = document.createElement("div");
-      row.className = "option-item";
-      const span = document.createElement("span");
-      span.textContent = u.username + (u.isAdmin ? " (admin)" : "");
-      const resetBtn = document.createElement("button");
-      resetBtn.textContent = "Reset password";
-      resetBtn.addEventListener("click", () => resetUserPassword(u.username));
-      row.appendChild(span);
-      row.appendChild(resetBtn);
-      listEl.appendChild(row);
-    });
-  } catch (err) {
-    listEl.innerHTML = '<div class="option-item"><span>Could not load users.</span></div>';
-  }
-}
-
-/* ---------------- Category / blood group option lists ----------------
-   The Sheet's "Options" tab is the source of truth for anything added
-   via Settings, so it's the same for every visitor. Defaults plus
-   whatever's actually in use on a contact are folded in too, as a
-   defensive fallback in case the Options tab is behind. */
-
-function rebuildCategorySuggestions() {
-  const used = new Set(contacts.map(c => asText(c.Category).trim()).filter(Boolean));
-  const all = new Set([...DEFAULT_CATEGORIES, ...sheetCategories, ...used]);
-  const datalist = document.getElementById("categoryOptions");
-  datalist.innerHTML = "";
-  [...all].sort().forEach(cat => {
-    const opt = document.createElement("option");
-    opt.value = cat;
-    datalist.appendChild(opt);
-  });
-  renderSettingsLists();
-}
-
-function allBloodGroups() {
-  return [...new Set([...DEFAULT_BLOOD_GROUPS, ...sheetBloodGroups])];
-}
-
-function allGroups() {
-  return [...new Set([...DEFAULT_GROUPS, ...sheetGroups])];
-}
-
-function renderFormGroupChips() {
-  const row = document.getElementById("formGroupChips");
-  // Fold in any group already on this contact even if it's since been
-  // removed from Settings, so editing never silently drops it.
-  const all = [...new Set([...allGroups(), ...selectedFormGroups])].sort();
-  row.innerHTML = "";
-  if (all.length === 0) {
-    row.innerHTML = '<span class="hint" style="margin:0;">No groups yet — add one from Settings.</span>';
-    return;
-  }
-  all.forEach(g => {
-    const chip = document.createElement("div");
-    chip.className = "chip" + (selectedFormGroups.includes(g) ? " active" : "");
-    chip.textContent = g;
-    chip.onclick = () => {
-      selectedFormGroups = selectedFormGroups.includes(g)
-        ? selectedFormGroups.filter(x => x !== g)
-        : [...selectedFormGroups, g];
-      renderFormGroupChips();
-    };
-    row.appendChild(chip);
-  });
-}
-
-function rebuildBloodGroupSelect() {
-  const select = document.getElementById("fBloodGroup");
-  const current = select.value;
-  select.innerHTML = '<option value=""></option>';
-  allBloodGroups().forEach(bg => {
-    const opt = document.createElement("option");
-    opt.value = bg; opt.textContent = bg;
-    select.appendChild(opt);
-  });
-  select.value = current;
-}
-
-async function addOption(type, rawValue) {
-  const value = (type === "Category" || type === "Group") ? toTitleCase(rawValue) : rawValue.trim().toUpperCase();
-  if (!value) return;
-  const currentList = type === "Category"
-    ? [...new Set([...DEFAULT_CATEGORIES, ...sheetCategories])]
-    : type === "Group"
-    ? allGroups()
-    : allBloodGroups();
-  if (currentList.includes(value)) {
-    alert(`'${value}' is already in the list.`);
-    return;
-  }
-  pendingOps++; setSync("syncing", "Saving option…");
-  try {
-    const result = await apiPost({ action: "addOption", optionType: type, value });
-    if (result.status !== "ok") throw new Error(result.message || "Unknown error");
-  } catch (err) {
-    alert("Could not save: " + err.message);
-  } finally {
-    await refreshFromSheet(false);
-    pendingOps = Math.max(0, pendingOps - 1);
-    setSync(pendingOps === 0 ? "synced" : "syncing", pendingOps === 0 ? `Synced · ${contacts.length}` : "Saving…");
-    renderSettingsLists();
-  }
-}
-
-async function removeOption(type, value) {
-  pendingOps++; setSync("syncing", "Removing option…");
-  try {
-    const result = await apiPost({ action: "removeOption", optionType: type, value });
-    if (result.status !== "ok") throw new Error(result.message || "Unknown error");
-  } catch (err) {
-    alert("Could not remove: " + err.message);
-  } finally {
-    await refreshFromSheet(false);
-    pendingOps = Math.max(0, pendingOps - 1);
-    setSync(pendingOps === 0 ? "synced" : "syncing", pendingOps === 0 ? `Synced · ${contacts.length}` : "Removing…");
-    renderSettingsLists();
-  }
-}
-
-/* ---------------- Category filter chips ---------------- */
-
-let activeCategory = "All";
-let activeFavoriteGroup = "All"; // group folder selected inside the Favorites tab
-
-function renderCategoryChips() {
-  const used = [...new Set(contacts.map(c => (c.Category || "").trim()).filter(Boolean))].sort();
-  const row = document.getElementById("categoryChips");
-  row.innerHTML = "";
-  ["All", ...used].forEach(cat => {
-    const chip = document.createElement("div");
-    chip.className = "chip" + (cat === activeCategory ? " active" : "");
-    chip.textContent = cat;
-    chip.onclick = () => { activeCategory = cat; renderCategoryChips(); renderList(); };
-    row.appendChild(chip);
-  });
-}
-
-// Group "folders" shown only inside the Favorites tab — built from
-// whatever groups actually appear on a favorited contact, so the row
-// disappears entirely until there's something to filter by.
-function renderFavGroupChips() {
-  const row = document.getElementById("favGroupChips");
-  if (activeTab !== "favorites") {
-    row.style.display = "none";
-    return;
-  }
-  const used = [...new Set(contacts.filter(isFavorite).flatMap(contactGroups))].sort();
-  row.innerHTML = "";
-  if (used.length === 0) {
-    row.style.display = "none";
-    return;
-  }
-  row.style.display = "flex";
-  ["All", ...used].forEach(g => {
-    const chip = document.createElement("div");
-    chip.className = "chip" + (g === activeFavoriteGroup ? " active" : "");
-    chip.textContent = g;
-    chip.onclick = () => { activeFavoriteGroup = g; renderFavGroupChips(); renderList(); };
-    row.appendChild(chip);
-  });
-}
-
-/* ---------------- List rendering ---------------- */
-
-function renderList() {
-  const listEl = document.getElementById("list-view");
-  const search = document.getElementById("searchInput").value.trim().toLowerCase();
-
-  renderFavGroupChips();
-
-  let filtered = contacts.filter(c => {
-    if (activeTab === "favorites" && !isFavorite(c)) return false;
-    if (activeTab === "favorites" && activeFavoriteGroup !== "All" && !contactGroups(c).includes(activeFavoriteGroup)) return false;
-    if (activeCategory !== "All" && (c.Category || "") !== activeCategory) return false;
-    if (search) {
-      const haystack = [c.Name, c.Phone, c.Email, c.Address, c.Notes, c.Category, c.Gender, c.WhatsApp, c.Telegram, c.Groups].join(" ").toLowerCase();
-      if (!haystack.includes(search)) return false;
-    }
-    return true;
-  });
-
-  filtered.sort((a, b) => (a.Name || "").localeCompare(b.Name || ""));
-
-  listEl.innerHTML = "";
-
-  if (filtered.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    if (activeTab === "favorites") {
-      empty.textContent = "No favorites yet. Open a contact and tap the star to add one.";
-    } else {
-      empty.textContent = contacts.length === 0
-        ? "No contacts yet. Tap + to add your first one."
-        : "No contacts match your search or filter.";
-    }
-    listEl.appendChild(empty);
-    return;
-  }
-
-  let currentLetter = null;
-  filtered.forEach(c => {
-    const letter = (c.Name || "#")[0].toUpperCase();
-    if (letter !== currentLetter) {
-      currentLetter = letter;
-      const header = document.createElement("div");
-      header.className = "section-header";
-      header.textContent = letter;
-      listEl.appendChild(header);
-    }
-    listEl.appendChild(buildContactRow(c));
-  });
-}
-
-function buildContactRow(c) {
-  const row = document.createElement("div");
-  row.className = "contact-row";
-  row.onclick = () => openDetail(c);
-
-  const avatar = document.createElement("div");
-  avatar.className = "avatar";
-  const rowPhoto = asText(c.PhotoUrl).trim();
-  if (rowPhoto) {
-    const img = document.createElement("img");
-    img.src = rowPhoto;
-    img.style.width = "100%"; img.style.height = "100%"; img.style.borderRadius = "50%"; img.style.objectFit = "cover";
-    avatar.appendChild(img);
-  } else {
-    avatar.style.background = avatarColor(c.Name || "?");
-    avatar.textContent = initials(c.Name || "?");
-  }
-
-  const meta = document.createElement("div");
-  meta.className = "contact-meta";
-  const nameEl = document.createElement("div");
-  nameEl.className = "contact-name";
-  nameEl.textContent = c.Name || "(no name)";
-  if (isFavorite(c)) {
-    const star = document.createElement("span");
-    star.className = "favorite-tag";
-    star.textContent = "★";
-    nameEl.appendChild(star);
-  }
-  if (c._pending) {
-    const tag = document.createElement("span");
-    tag.className = "pending-tag";
-    tag.textContent = "Syncing…";
-    nameEl.appendChild(tag);
-  }
-  const subEl = document.createElement("div");
-  subEl.className = "contact-sub";
-  subEl.textContent = [c.Category, c.Phone].filter(Boolean).join(" · ");
-
-  meta.appendChild(nameEl);
-  meta.appendChild(subEl);
-  row.appendChild(avatar);
-  row.appendChild(meta);
-  return row;
-}
-
-/* ---------------- Detail overlay ---------------- */
-
-function openDetail(c) {
-  selectedContact = c;
-  const body = document.getElementById("detailBody");
-  body.innerHTML = "";
-
-  try {
-    const header = document.createElement("div");
-    header.className = "detail-header";
-    const av = document.createElement("div");
-    av.className = "detail-avatar";
-    const detailPhoto = asText(c.PhotoUrl).trim();
-    if (detailPhoto) {
-      const img = document.createElement("img");
-      img.src = detailPhoto;
-      img.style.width = "100%"; img.style.height = "100%"; img.style.borderRadius = "50%"; img.style.objectFit = "cover";
-      av.appendChild(img);
-    } else {
-      av.style.background = avatarColor(c.Name);
-      av.textContent = initials(c.Name);
-    }
-    const nm = document.createElement("div");
-    nm.className = "detail-name";
-    nm.textContent = asText(c.Name) || "(no name)";
-
-    const starBtn = document.createElement("button");
-    starBtn.className = "favorite-star" + (isFavorite(c) ? " active" : "");
-    starBtn.textContent = isFavorite(c) ? "★" : "☆";
-    starBtn.title = isFavorite(c) ? "Remove from favorites" : "Add to favorites";
-    starBtn.onclick = () => toggleFavorite(c);
-
-    const nameRow = document.createElement("div");
-    nameRow.style.display = "flex";
-    nameRow.style.alignItems = "center";
-    nameRow.style.justifyContent = "center";
-    nameRow.style.gap = "6px";
-    nameRow.appendChild(nm);
-    nameRow.appendChild(starBtn);
-
-    const sub = document.createElement("div");
-    sub.className = "detail-sub";
-    sub.textContent = [asText(c.Category), asText(c.Gender)].filter(Boolean).join(" · ");
-    header.appendChild(av); header.appendChild(nameRow); header.appendChild(sub);
-    body.appendChild(header);
-
-    const phoneText = asText(c.Phone);
-    const emailText = asText(c.Email);
-    const addressText = asText(c.Address);
-    const whatsappRaw = asText(c.WhatsApp).trim() || phoneText.trim();
-    const whatsappIsFallback = !asText(c.WhatsApp).trim() && !!phoneText.trim();
-    const whatsappText = whatsappRaw.replace(/[^\d+]/g, "");
-    const telegramUsername = asText(c.Telegram).replace(/^@/, "").trim();
-    const telegramIsFallback = !telegramUsername && !!phoneText.trim();
-    const telegramPhoneDigits = phoneText.replace(/[^\d+]/g, "");
-    const telegramPhoneWithPlus = telegramPhoneDigits ? (telegramPhoneDigits.startsWith("+") ? telegramPhoneDigits : `+${telegramPhoneDigits}`) : "";
-    const latText = asText(c.Latitude).trim();
-    const lngText = asText(c.Longitude).trim();
-    const hasCoords = latText !== "" && lngText !== "" && !isNaN(parseFloat(latText)) && !isNaN(parseFloat(lngText));
-
-    let mapHref = null;
-    if (hasCoords) {
-      mapHref = `https://maps.apple.com/?ll=${encodeURIComponent(latText)},${encodeURIComponent(lngText)}&q=${encodeURIComponent(asText(c.Name) || "Location")}`;
-    } else if (addressText) {
-      mapHref = `https://maps.apple.com/?q=${encodeURIComponent(addressText)}`;
-    }
-
-    const actions = document.createElement("div");
-    actions.className = "action-row";
-    actions.appendChild(actionLink("📞", "Call", phoneText ? `tel:${phoneText.replace(/\s+/g, "")}` : null, () => addRecentCall(asText(c.Name), phoneText)));
-    actions.appendChild(actionLink("✉️", "Email", emailText ? `mailto:${emailText}` : null));
-    actions.appendChild(actionLink("🗺️", "Map", mapHref));
-    actions.appendChild(actionLink("💬", "WhatsApp", whatsappText ? `https://wa.me/${whatsappText.replace(/^\+/, "")}` : null));
-    actions.appendChild(actionLink("✈️", "Telegram", telegramUsername ? `https://t.me/${telegramUsername}` : (telegramIsFallback ? `https://t.me/${telegramPhoneWithPlus}` : null)));
-    actions.appendChild(actionLink("📤", "Share", "#", (e) => { e.preventDefault(); openShareSheet(c); }));
-    actions.appendChild(actionLink("🔳", "QR Code", "#", (e) => { e.preventDefault(); openQRSheet(c); }));
-    body.appendChild(actions);
-
-    const card = document.createElement("div");
-    card.className = "info-card";
-    [
-      ["Phone", phoneText], ["Email", emailText], ["Address", addressText], ["Notes", asText(c.Notes)],
-      ["Category", asText(c.Category)], ["Blood Group", asText(c.BloodGroup)], ["Gender", asText(c.Gender)],
-      ["WhatsApp", whatsappIsFallback ? `${whatsappRaw} (using phone number)` : asText(c.WhatsApp)],
-      ["Telegram", telegramIsFallback ? `${phoneText.trim()} (using phone number)` : asText(c.Telegram)],
-      ["Location", hasCoords ? `${latText}, ${lngText}` : ""],
-      ["Groups", contactGroups(c).join(", ")],
-      ["Date Added", asText(c.DateAdded)]
-    ].forEach(([label, value]) => {
-      const row = document.createElement("div");
-      row.className = "info-row";
-      const l = document.createElement("div"); l.className = "info-label"; l.textContent = label;
-      const v = document.createElement("div"); v.className = "info-value"; v.textContent = value;
-      row.appendChild(l); row.appendChild(v);
-      card.appendChild(row);
-    });
-    body.appendChild(card);
-
-    const delBtn = document.createElement("button");
-    delBtn.className = "danger-btn";
-    delBtn.textContent = "Delete Contact";
-    delBtn.onclick = () => deleteContact(c);
-    body.appendChild(delBtn);
-  } catch (err) {
-    // Belt-and-suspenders: if a field ever contains something unexpected,
-    // show it instead of leaving the sheet blank/stuck-closed, so this
-    // never happens invisibly again.
-    console.error("openDetail failed for", c, err);
-    body.innerHTML = "";
-    const msg = document.createElement("div");
-    msg.className = "empty-state";
-    msg.textContent = "This contact has a field that couldn't be displayed. Check the browser console for details, or try editing it.";
-    body.appendChild(msg);
-  }
-
-  document.getElementById("detailOverlay").classList.add("open");
-}
-
-function actionLink(glyph, label, href, onClick) {
-  const a = document.createElement("a");
-  a.className = "action-btn" + (href ? "" : " disabled");
-  if (href) a.href = href;
-  if (href && onClick) a.addEventListener("click", onClick);
-  a.innerHTML = `<span class="glyph">${glyph}</span>${label}`;
-  return a;
-}
-
-/* ---------------- Share contact ---------------- */
-
-function buildShareText(c) {
-  const lines = [];
-  const name = asText(c.Name).trim();
-  const phone = asText(c.Phone).trim();
-  const whatsapp = asText(c.WhatsApp).trim();
-  const telegram = asText(c.Telegram).replace(/^@/, "").trim();
-  const email = asText(c.Email).trim();
-  const address = asText(c.Address).trim();
-
-  if (name) lines.push(name);
-  if (phone) lines.push(`Phone: ${phone}`);
-  if (whatsapp) lines.push(`WhatsApp: ${whatsapp}`);
-  if (telegram) lines.push(`Telegram: @${telegram}`);
-  if (email) lines.push(`Email: ${email}`);
-  if (address) lines.push(`Address: ${address}`);
-  return lines.join("\n");
-}
-
-function openShareSheet(c) {
-  const text = buildShareText(c);
-  const encoded = encodeURIComponent(text);
-
-  document.getElementById("shareViaMessage").href = `sms:?&body=${encoded}`;
-  document.getElementById("shareViaWhatsApp").href = `https://wa.me/?text=${encoded}`;
-  document.getElementById("shareViaTelegram").href = `https://t.me/share/url?url=&text=${encoded}`;
-
-  const moreBtn = document.getElementById("shareViaMore");
-  if (navigator.share) {
-    moreBtn.style.display = "flex";
-    moreBtn.onclick = (e) => {
-      e.preventDefault();
-      closeShareSheet();
-      navigator.share({ text }).catch(() => {}); // user cancelling the native sheet throws — ignore
-    };
-  } else {
-    moreBtn.style.display = "none";
-  }
-
-  [document.getElementById("shareViaMessage"), document.getElementById("shareViaWhatsApp"), document.getElementById("shareViaTelegram")]
-    .forEach(el => { el.onclick = () => closeShareSheet(); });
-
-  document.getElementById("shareSheetBackdrop").classList.add("open");
-}
-
-function closeShareSheet() {
-  document.getElementById("shareSheetBackdrop").classList.remove("open");
-}
-
-document.getElementById("shareSheetCancelBtn").addEventListener("click", closeShareSheet);
-document.getElementById("shareSheetBackdrop").addEventListener("click", (e) => {
-  if (e.target.id === "shareSheetBackdrop") closeShareSheet();
+function render(list=contacts){
+list.sort((a,b)=>a.name.localeCompare(b.name));
+const container=document.getElementById("contacts");
+container.innerHTML="";
+list.forEach(c=>{
+let div=document.createElement("div");
+div.className="contact";
+div.innerHTML=c.favorite?"⭐ "+c.name:c.name;
+div.onclick=()=>openProfile(c.id);
+container.appendChild(div);
 });
-
-/* ---------------- QR code (add to phone contacts) ----------------
-   Encodes the contact as a vCard (the standard "contact card" format)
-   directly into the QR code. A phone's camera recognizes a scanned
-   vCard automatically and offers to add it to Contacts — no app, no
-   link, no server round-trip required. */
-
-// vCard reserves backslash, semicolon, comma and newline as syntax —
-// escape them so a comma in an address or a semicolon in notes can't
-// corrupt the fields that follow it.
-function escapeVCardField(value) {
-  return asText(value).replace(/\\/g, "\\\\").replace(/;/g, "\\;").replace(/,/g, "\\,").replace(/\n/g, "\\n");
+}
+function showAdd(){
+let name=prompt("Name");
+if(!name)return;
+let number=prompt("Phone Number");
+if(!number)return;
+contacts.push({
+id:Date.now(),
+name:name,
+number:number,
+favorite:false
+});
+save();
+render();
+}
+function openProfile(id){
+let c=contacts.find(x=>x.id==id);
+let p=document.getElementById("profile");
+p.innerHTML=`
+<h2>${c.name}</h2>
+<p>${c.number}</p>
+<button class="call" onclick="call('${c.number}')">Call</button>
+<button class="edit" onclick="edit(${c.id})">Edit</button>
+<button class="favorite" onclick="favorite(${c.id})">
+${c.favorite?"Remove Favorite":"Add Favorite"}
+</button>
+<button class="delete" onclick="remove(${c.id})">Delete</button>
+<button onclick="closeProfile()">Back</button>
+`;
+p.style.display="block";
+}
+function closeProfile(){
+document.getElementById("profile").style.display="none";
+}
+function call(number){
+history.push({
+number:number,
+time:new Date()
+});
+localStorage.setItem("history",JSON.stringify(history));
+window.location.href="tel:"+number;
+}
+function edit(id){
+let c=contacts.find(x=>x.id==id);
+let name=prompt("Edit name",c.name);
+let number=prompt("Edit number",c.number);
+if(name)c.name=name;
+if(number)c.number=number;
+save();
+render();
+openProfile(id);
+}
+function remove(id){
+contacts=contacts.filter(c=>c.id!=id);
+save();
+render();
+closeProfile();
+}
+function favorite(id){
+let c=contacts.find(x=>x.id==id);
+c.favorite=!c.favorite;
+save();
+render();
+openProfile(id);
+}
+function search(q){
+q=q.toLowerCase();
+let filtered=contacts.filter(c=>c.name.toLowerCase().includes(q));
+render(filtered);
 }
 
-function buildVCard(c) {
-  const name = asText(c.Name).trim() || "Unknown";
-  const phone = asText(c.Phone).trim();
-  const email = asText(c.Email).trim();
-  const address = asText(c.Address).trim();
-  const org = asText(c.Category).trim();
-  const whatsapp = asText(c.WhatsApp).trim() || phone;
+/* ---------- Google Contacts import ---------- */
 
-  // N is First/Last split for contact apps that use it to file the card;
-  // FN (the full display name) is what most phones actually show.
-  const nameParts = name.split(/\s+/).filter(Boolean);
-  const first = nameParts[0] || name;
-  const last = nameParts.slice(1).join(" ");
-
-  const lines = ["BEGIN:VCARD", "VERSION:3.0"];
-  lines.push(`N:${escapeVCardField(last)};${escapeVCardField(first)};;;`);
-  lines.push(`FN:${escapeVCardField(name)}`);
-  if (org) lines.push(`ORG:${escapeVCardField(org)}`);
-  if (phone) lines.push(`TEL;TYPE=CELL:${escapeVCardField(phone)}`);
-  if (whatsapp && whatsapp !== phone) lines.push(`TEL;TYPE=WORK:${escapeVCardField(whatsapp)}`);
-  if (email) lines.push(`EMAIL:${escapeVCardField(email)}`);
-  if (address) lines.push(`ADR;TYPE=HOME:;;${escapeVCardField(address)};;;;`);
-  lines.push("END:VCARD");
-  return lines.join("\n");
+function normalizeNumber(n){
+return (n||"").replace(/[^\d+]/g,"");
 }
 
-function openQRSheet(c) {
-  const canvas = document.getElementById("qrCodeCanvas");
-  canvas.innerHTML = "";
-  try {
-    // eslint-disable-next-line no-undef
-    new QRCode(canvas, {
-      text: buildVCard(c),
-      width: 200,
-      height: 200,
-      correctLevel: QRCode.CorrectLevel.M
-    });
-  } catch (err) {
-    console.error("QR generation failed", err);
-    canvas.textContent = "Couldn't generate a QR code for this contact.";
-  }
-  document.getElementById("qrContactName").textContent = asText(c.Name) || "(no name)";
-  document.getElementById("qrSheetBackdrop").classList.add("open");
+function showImportSummary(text){
+let el=document.getElementById("importSummary");
+el.textContent=text;
+el.style.display="block";
+setTimeout(()=>{el.style.display="none";},4000);
 }
 
-function closeQRSheet() {
-  document.getElementById("qrSheetBackdrop").classList.remove("open");
+function mergeImported(parsedContacts){
+let existingNumbers=new Set(contacts.map(c=>normalizeNumber(c.number)));
+let added=0, skipped=0;
+parsedContacts.forEach(pc=>{
+if(!pc.name || !pc.number){skipped++; return;}
+let norm=normalizeNumber(pc.number);
+if(!norm || existingNumbers.has(norm)){skipped++; return;}
+contacts.push({
+id:Date.now()+Math.floor(Math.random()*100000),
+name:pc.name,
+number:pc.number,
+favorite:false
+});
+existingNumbers.add(norm);
+added++;
+});
+save();
+render();
+showImportSummary(`Imported ${added} contact${added==1?"":"s"}${skipped?`, skipped ${skipped} (missing or duplicate)`:""}.`);
 }
 
-document.getElementById("qrSheetCancelBtn").addEventListener("click", closeQRSheet);
-document.getElementById("qrSheetBackdrop").addEventListener("click", (e) => {
-  if (e.target.id === "qrSheetBackdrop") closeQRSheet();
+// vCard (.vcf) format - what Google Contacts exports by default
+function parseVCF(text){
+let cards=text.split(/BEGIN:VCARD/i).slice(1);
+let results=[];
+cards.forEach(block=>{
+let name=null;
+let number=null;
+let lines=block.split(/\r\n|\n|\r/);
+lines.forEach(line=>{
+// unfold simple continuations isn't handled here, most exports are single-line
+if(/^FN[:;]/i.test(line) && !name){
+name=line.split(":").slice(1).join(":").trim();
+}
+if(/^TEL/i.test(line) && !number){
+number=line.split(":").slice(1).join(":").trim();
+}
 });
-
-async function toggleFavorite(c) {
-  const newFavorite = isFavorite(c) ? "" : "Yes";
-  const idx = contacts.findIndex(x => x.row === c.row);
-  if (idx !== -1) contacts[idx] = { ...contacts[idx], Favorite: newFavorite };
-  const updated = idx !== -1 ? contacts[idx] : { ...c, Favorite: newFavorite };
-
-  openDetail(updated); // redraw the star immediately
-  renderList();
-
-  const data = {
-    Name: updated.Name, Phone: updated.Phone, Email: updated.Email, Address: updated.Address,
-    Notes: updated.Notes, Category: updated.Category, BloodGroup: updated.BloodGroup, Gender: updated.Gender,
-    WhatsApp: updated.WhatsApp, Telegram: updated.Telegram, Latitude: updated.Latitude, Longitude: updated.Longitude,
-    PhotoUrl: updated.PhotoUrl, Favorite: newFavorite
-  };
-
-  pendingOps++; setSync("syncing", "Saving…");
-  try {
-    const result = await apiPost({ action: "update", row: c.row, data });
-    if (result.status !== "ok") throw new Error(result.message);
-  } catch (err) {
-    alert("Could not save favorite: " + err.message);
-  } finally {
-    await refreshFromSheet(false);
-    pendingOps = Math.max(0, pendingOps - 1);
-    setSync(pendingOps === 0 ? "synced" : "syncing", pendingOps === 0 ? `Synced · ${contacts.length}` : "Saving…");
-  }
+if(!name){
+// fallback to N: field (Family;Given;...)
+let nLine=lines.find(l=>/^N[:;]/i.test(l));
+if(nLine){
+let parts=nLine.split(":").slice(1).join(":").split(";");
+name=[parts[1],parts[0]].filter(Boolean).join(" ").trim();
+}
+}
+results.push({name:name,number:number});
+});
+return results;
 }
 
-/* ---------------- Add / Edit form ---------------- */
-
-function openForm(contact) {
-  editingRow = contact ? contact.row : null;
-  document.getElementById("formTitle").textContent = contact ? "Edit Contact" : "New Contact";
-  rebuildBloodGroupSelect();
-
-  document.getElementById("fName").value = contact ? (contact.Name || "") : "";
-  document.getElementById("fPhone").value = contact ? (contact.Phone || "") : "";
-  document.getElementById("fEmail").value = contact ? (contact.Email || "") : "";
-  document.getElementById("fAddress").value = contact ? (contact.Address || "") : "";
-  document.getElementById("fNotes").value = contact ? (contact.Notes || "") : "";
-  document.getElementById("fCategory").value = contact ? (contact.Category || "") : "";
-  document.getElementById("fBloodGroup").value = contact ? (contact.BloodGroup || "") : "";
-  document.getElementById("fGender").value = contact ? (contact.Gender || "") : "";
-  document.getElementById("fWhatsApp").value = contact ? (contact.WhatsApp || "") : "";
-  document.getElementById("fTelegram").value = contact ? (contact.Telegram || "") : "";
-  document.getElementById("fLatitude").value = contact ? (contact.Latitude || "") : "";
-  document.getElementById("fLongitude").value = contact ? (contact.Longitude || "") : "";
-  document.getElementById("locationStatus").textContent = "";
-
-  selectedFormGroups = contact ? contactGroups(contact) : [];
-  renderFormGroupChips();
-
-  currentPhotoUrl = contact ? asText(contact.PhotoUrl).trim() : "";
-  pendingPhotoBase64 = null;
-  pendingPhotoMimeType = null;
-  photoRemoved = false;
-  document.getElementById("fPhotoInput").value = "";
-  updatePhotoPreview();
-
-  document.getElementById("formOverlay").classList.add("open");
+// Simple CSV parser that handles quoted fields
+function parseCSVLine(line){
+let result=[];
+let cur="";
+let inQuotes=false;
+for(let i=0;i<line.length;i++){
+let ch=line[i];
+if(inQuotes){
+if(ch=='"'){
+if(line[i+1]=='"'){cur+='"';i++;}
+else{inQuotes=false;}
+}else{
+cur+=ch;
+}
+}else{
+if(ch=='"'){inQuotes=true;}
+else if(ch==','){result.push(cur);cur="";}
+else{cur+=ch;}
+}
+}
+result.push(cur);
+return result;
 }
 
-function closeForm() {
-  document.getElementById("formOverlay").classList.remove("open");
+function parseCSV(text){
+// handle quoted multi-line fields by doing a light full-text split first
+let rows=[];
+let cur="";
+let inQuotes=false;
+for(let i=0;i<text.length;i++){
+let ch=text[i];
+cur+=ch;
+if(ch=='"') inQuotes=!inQuotes;
+if(ch=='\n' && !inQuotes){
+rows.push(cur);
+cur="";
+}
+}
+if(cur.trim()) rows.push(cur);
+
+let header=parseCSVLine(rows[0].replace(/\r?\n$/,"")).map(h=>h.trim());
+let nameIdx=header.indexOf("Name");
+let givenIdx=header.indexOf("Given Name");
+let familyIdx=header.indexOf("Family Name");
+let phoneIdxs=header.map((h,i)=>/^Phone \d+ - Value$/.test(h)?i:-1).filter(i=>i!=-1);
+
+let results=[];
+for(let r=1;r<rows.length;r++){
+let raw=rows[r].replace(/\r?\n$/,"");
+if(!raw.trim()) continue;
+let cols=parseCSVLine(raw);
+let name = nameIdx!=-1 ? cols[nameIdx] : "";
+if(!name && (givenIdx!=-1 || familyIdx!=-1)){
+name=[cols[givenIdx],cols[familyIdx]].filter(Boolean).join(" ");
+}
+let number="";
+for(let pi of phoneIdxs){
+if(cols[pi] && cols[pi].trim()){number=cols[pi].trim();break;}
+}
+results.push({name:(name||"").trim(),number:number});
+}
+return results;
 }
 
-function readFormValues() {
-  return {
-    Name: toTitleCase(document.getElementById("fName").value.trim()),
-    Phone: document.getElementById("fPhone").value.trim(),
-    Email: document.getElementById("fEmail").value.trim(),
-    Address: document.getElementById("fAddress").value.trim(),
-    Notes: document.getElementById("fNotes").value.trim(),
-    Category: toTitleCase(document.getElementById("fCategory").value.trim()),
-    BloodGroup: document.getElementById("fBloodGroup").value,
-    Gender: document.getElementById("fGender").value,
-    WhatsApp: document.getElementById("fWhatsApp").value.trim(),
-    Telegram: document.getElementById("fTelegram").value.trim().replace(/^@/, ""),
-    Latitude: document.getElementById("fLatitude").value.trim(),
-    Longitude: document.getElementById("fLongitude").value.trim(),
-    Groups: selectedFormGroups.join(", ")
-  };
+function handleImportFile(event){
+let file=event.target.files[0];
+if(!file)return;
+let reader=new FileReader();
+reader.onload=function(e){
+let text=e.target.result;
+let parsed;
+if(file.name.toLowerCase().endsWith(".vcf") || /BEGIN:VCARD/i.test(text)){
+parsed=parseVCF(text);
+}else{
+parsed=parseCSV(text);
+}
+mergeImported(parsed);
+};
+reader.onerror=function(){
+showImportSummary("Couldn't read that file.");
+};
+reader.readAsText(file);
+event.target.value="";
 }
 
-async function saveForm() {
-  const values = readFormValues();
-  if (!values.Name) { alert("Name is required."); return; }
-
-  const duplicate = findDuplicatePhoneContact(values.Phone, editingRow);
-  if (duplicate) {
-    alert(`This number is already saved under "${duplicate.Name || "another contact"}". You can't save the same number for a different contact.`);
-    return;
-  }
-
-  // Resolve what the photo URL should end up being: keep the existing
-  // one, clear it, or (if a new file was picked) upload it below and
-  // fill this in with the freshly returned Drive URL.
-  let photoUrl = photoRemoved ? "" : currentPhotoUrl;
-  const needsUpload = !!pendingPhotoBase64;
-  const photoBase64ToUpload = pendingPhotoBase64;
-  const photoMimeToUpload = pendingPhotoMimeType;
-  const photoNameForUpload = values.Name.replace(/\s+/g, "_") + "_" + Date.now();
-
-  closeForm();
-
-  if (editingRow == null) {
-    const tempRow = "pending-" + Math.random().toString(36).slice(2, 9);
-    contacts.push({ ...values, PhotoUrl: photoUrl, row: tempRow, DateAdded: "Syncing...", _pending: true });
-    renderList(); renderCategoryChips(); rebuildCategorySuggestions();
-    pendingOps++; setSync("syncing", needsUpload ? "Uploading photo…" : "Saving…");
-    try {
-      if (needsUpload) {
-        const uploadResult = await apiPost({ action: "uploadPhoto", imageBase64: photoBase64ToUpload, mimeType: photoMimeToUpload, filename: photoNameForUpload });
-        if (uploadResult.status !== "ok") throw new Error(uploadResult.message);
-        photoUrl = uploadResult.url;
-        setSync("syncing", "Saving…");
-      }
-      values.PhotoUrl = photoUrl;
-      const result = await apiPost({ action: "add", data: values });
-      if (result.status !== "ok") throw new Error(result.message);
-    } catch (err) {
-      alert("Could not save: " + err.message);
-    } finally {
-      await refreshFromSheet(false);
-      pendingOps = Math.max(0, pendingOps - 1);
-      setSync(pendingOps === 0 ? "synced" : "syncing", pendingOps === 0 ? `Synced · ${contacts.length}` : "Saving…");
-    }
-  } else {
-    const row = editingRow;
-    const idx = contacts.findIndex(c => c.row === row);
-    // The form never edits Favorite, so carry the existing value forward —
-    // otherwise saving any other field would silently clear it.
-    values.Favorite = idx !== -1 ? asText(contacts[idx].Favorite) : "";
-    if (idx !== -1) contacts[idx] = { ...contacts[idx], ...values, PhotoUrl: photoUrl, DateAdded: "Syncing...", _pending: true };
-    renderList(); renderCategoryChips(); rebuildCategorySuggestions();
-    pendingOps++; setSync("syncing", needsUpload ? "Uploading photo…" : "Saving…");
-    try {
-      if (needsUpload) {
-        const uploadResult = await apiPost({ action: "uploadPhoto", imageBase64: photoBase64ToUpload, mimeType: photoMimeToUpload, filename: photoNameForUpload });
-        if (uploadResult.status !== "ok") throw new Error(uploadResult.message);
-        photoUrl = uploadResult.url;
-        setSync("syncing", "Saving…");
-      }
-      values.PhotoUrl = photoUrl;
-      const result = await apiPost({ action: "update", row, data: values });
-      if (result.status !== "ok") throw new Error(result.message);
-    } catch (err) {
-      alert("Could not save: " + err.message);
-    } finally {
-      await refreshFromSheet(false);
-      pendingOps = Math.max(0, pendingOps - 1);
-      setSync(pendingOps === 0 ? "synced" : "syncing", pendingOps === 0 ? `Synced · ${contacts.length}` : "Saving…");
-    }
-  }
-}
-
-async function deleteContact(c) {
-  if (!confirm(`Delete ${c.Name || "this contact"}?`)) return;
-  document.getElementById("detailOverlay").classList.remove("open");
-  contacts = contacts.filter(x => x.row !== c.row);
-  renderList(); renderCategoryChips();
-  pendingOps++; setSync("syncing", "Deleting…");
-  try {
-    const result = await apiPost({ action: "delete", row: c.row });
-    if (result.status !== "ok") throw new Error(result.message);
-  } catch (err) {
-    alert("Could not delete: " + err.message);
-  } finally {
-    await refreshFromSheet(false);
-    pendingOps = Math.max(0, pendingOps - 1);
-    setSync(pendingOps === 0 ? "synced" : "syncing", pendingOps === 0 ? `Synced · ${contacts.length}` : "Deleting…");
-  }
-}
-
-/* ---------------- Recents (call log) ---------------- */
-
-function formatRecentTime(ts) {
-  const diffMs = Date.now() - ts;
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "Just now";
-  if (mins < 60) return `${mins}m ago`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(ts).toLocaleDateString();
-}
-
-function findContactByPhone(phone) {
-  return findDuplicatePhoneContact(phone, null);
-}
-
-function renderRecents() {
-  const listEl = document.getElementById("recentsList");
-  listEl.innerHTML = "";
-
-  if (recents.length === 0) {
-    const empty = document.createElement("div");
-    empty.className = "empty-state";
-    empty.textContent = "No recent calls yet. Calls you make from a contact or the Keypad show up here.";
-    listEl.appendChild(empty);
-    return;
-  }
-
-  recents.forEach(entry => {
-    const matched = findContactByPhone(entry.phone);
-    const row = document.createElement("div");
-    row.className = "recent-row";
-    row.onclick = () => { if (matched) openDetail(matched); };
-
-    const avatar = document.createElement("div");
-    avatar.className = "avatar";
-    const label = matched ? (matched.Name || "?") : (entry.name || "?");
-    const rowPhoto = matched ? asText(matched.PhotoUrl).trim() : "";
-    if (rowPhoto) {
-      const img = document.createElement("img");
-      img.src = rowPhoto;
-      img.style.width = "100%"; img.style.height = "100%"; img.style.borderRadius = "50%"; img.style.objectFit = "cover";
-      avatar.appendChild(img);
-    } else {
-      avatar.style.background = avatarColor(label);
-      avatar.textContent = initials(label);
-    }
-
-    const meta = document.createElement("div");
-    meta.className = "recent-meta";
-    const nameEl = document.createElement("div");
-    nameEl.className = "recent-name";
-    nameEl.textContent = matched ? matched.Name : (entry.name || entry.phone || "Unknown number");
-    const subEl = document.createElement("div");
-    subEl.className = "recent-sub";
-    subEl.textContent = `${entry.phone || ""} · ${formatRecentTime(entry.time)}`;
-    meta.appendChild(nameEl); meta.appendChild(subEl);
-
-    const callBtn = document.createElement("a");
-    callBtn.className = "recent-call-btn";
-    callBtn.textContent = "📞";
-    if (entry.phone) {
-      callBtn.href = `tel:${entry.phone.replace(/\s+/g, "")}`;
-      callBtn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        addRecentCall(matched ? matched.Name : entry.name, entry.phone);
-      });
-    }
-
-    row.appendChild(avatar);
-    row.appendChild(meta);
-    row.appendChild(callBtn);
-    listEl.appendChild(row);
-  });
-}
-
-/* ---------------- Keypad ---------------- */
-
-function renderKeypad() {
-  document.getElementById("keypadDisplay").textContent = keypadDigits;
-  const callBtn = document.getElementById("keypadCallBtn");
-  if (keypadDigits) {
-    callBtn.href = `tel:${keypadDigits}`;
-    callBtn.classList.remove("disabled");
-  } else {
-    callBtn.removeAttribute("href");
-    callBtn.classList.add("disabled");
-  }
-  renderKeypadMatches();
-}
-
-function renderKeypadMatches() {
-  const matchesEl = document.getElementById("keypadMatches");
-  matchesEl.innerHTML = "";
-  const digits = normalizePhone(keypadDigits);
-  if (!digits) return;
-
-  const matches = contacts.filter(c => normalizePhone(c.Phone).includes(digits)).slice(0, 8);
-  matches.forEach(c => {
-    const row = document.createElement("div");
-    row.className = "keypad-match-row";
-    row.onclick = () => openDetail(c);
-    const left = document.createElement("div");
-    left.className = "keypad-match-name";
-    left.textContent = c.Name || "(no name)";
-    const right = document.createElement("div");
-    right.className = "keypad-match-phone";
-    right.textContent = asText(c.Phone);
-    row.appendChild(left); row.appendChild(right);
-    matchesEl.appendChild(row);
-  });
-}
-
-function resetKeypad() {
-  keypadDigits = "";
-  renderKeypad();
-}
-
-/* ---------------- Tab switching ---------------- */
-
-function switchTab(tab) {
-  activeTab = tab;
-  if (tab !== "favorites") activeFavoriteGroup = "All"; // leaving Favorites clears any group filter
-
-  document.querySelectorAll(".tab-btn").forEach(b => b.classList.toggle("active", b.dataset.tab === tab));
-
-  const showListArea = (tab === "contacts" || tab === "favorites");
-  document.getElementById("filterBar").style.display = showListArea ? "flex" : "none";
-  document.getElementById("list-view").style.display = showListArea ? "block" : "none";
-  document.getElementById("recentsView").style.display = (tab === "recents") ? "flex" : "none";
-  document.getElementById("recentsView").style.flexDirection = "column";
-  document.getElementById("keypadView").style.display = (tab === "keypad") ? "flex" : "none";
-  document.getElementById("addBtn").style.display = showListArea ? "flex" : "none";
-
-  if (showListArea) renderList();
-  else if (tab === "recents") renderRecents();
-  else if (tab === "keypad") renderKeypad();
-}
-
-/* ---------------- Settings overlay ---------------- */
-
-function renderSettingsLists() {
-  const catList = document.getElementById("categoryOptionList");
-  catList.innerHTML = "";
-  [...new Set([...DEFAULT_CATEGORIES, ...sheetCategories])].sort().forEach(cat => {
-    catList.appendChild(settingsRow(cat, () => removeOption("Category", cat), DEFAULT_CATEGORIES.includes(cat)));
-  });
-
-  const bloodList = document.getElementById("bloodOptionList");
-  bloodList.innerHTML = "";
-  allBloodGroups().sort().forEach(bg => {
-    bloodList.appendChild(settingsRow(bg, () => removeOption("BloodGroup", bg), DEFAULT_BLOOD_GROUPS.includes(bg)));
-  });
-
-  const groupList = document.getElementById("groupOptionList");
-  groupList.innerHTML = "";
-  allGroups().sort().forEach(g => {
-    groupList.appendChild(settingsRow(g, () => removeOption("Group", g), DEFAULT_GROUPS.includes(g)));
-  });
-}
-
-function settingsRow(label, onRemove, isDefault) {
-  const row = document.createElement("div");
-  row.className = "option-item";
-  const span = document.createElement("span");
-  span.textContent = label;
-  row.appendChild(span);
-  if (!isDefault) {
-    const btn = document.createElement("button");
-    btn.textContent = "Remove";
-    btn.onclick = onRemove;
-    row.appendChild(btn);
-  }
-  return row;
-}
-
-/* ---------------- Wiring ---------------- */
-
-document.getElementById("searchInput").addEventListener("input", renderList);
-document.getElementById("addBtn").addEventListener("click", () => openForm(null));
-document.getElementById("settingsBtn").addEventListener("click", () => {
-  renderSettingsLists();
-  document.getElementById("sheetUrlInput").value = WEB_APP_URL;
-  document.getElementById("sheetUrlStatus").textContent = "";
-  updateAccountUI();
-  if (session && session.isAdmin) loadUsersList();
-  document.getElementById("settingsOverlay").classList.add("open");
-});
-document.getElementById("settingsCloseBtn").addEventListener("click", () => {
-  document.getElementById("settingsOverlay").classList.remove("open");
-});
-document.getElementById("saveSheetUrlBtn").addEventListener("click", () => {
-  const input = document.getElementById("sheetUrlInput");
-  const status = document.getElementById("sheetUrlStatus");
-  const newUrl = input.value.trim();
-
-  if (!newUrl) {
-    status.textContent = "Enter a URL first.";
-    status.style.color = "var(--danger)";
-    return;
-  }
-  if (!/^https:\/\/script\.google\.com\/macros\/s\/.+\/exec$/.test(newUrl)) {
-    status.textContent = "That doesn't look like a Web App URL (should end in /exec).";
-    status.style.color = "var(--danger)";
-    return;
-  }
-
-  WEB_APP_URL = newUrl;
-  const persisted = saveWebAppUrl(newUrl);
-  status.style.color = "var(--muted)";
-  status.textContent = persisted ? "Saved. Reconnecting…" : "Using this URL for now (couldn't save it in this browser).";
-
-  refreshFromSheet(true);
-});
-document.getElementById("detailCloseBtn").addEventListener("click", () => {
-  document.getElementById("detailOverlay").classList.remove("open");
-});
-document.getElementById("detailEditBtn").addEventListener("click", () => {
-  document.getElementById("detailOverlay").classList.remove("open");
-  openForm(selectedContact);
-});
-document.getElementById("authSubmitBtn").addEventListener("click", async () => {
-  const btn = document.getElementById("authSubmitBtn");
-  const username = document.getElementById("authUsername").value.trim();
-  const password = document.getElementById("authPassword").value;
-  const errorEl = document.getElementById("authError");
-  errorEl.textContent = "";
-
-  if (!username || !password) { errorEl.textContent = "Enter a username and password."; return; }
-
-  if (authScreenMode === "bootstrap") {
-    const confirmPw = document.getElementById("authConfirmPassword").value;
-    if (password.length < 4) { errorEl.textContent = "Password must be at least 4 characters."; return; }
-    if (password !== confirmPw) { errorEl.textContent = "Passwords don't match."; return; }
-    btn.disabled = true; btn.textContent = "Creating…";
-    try {
-      const result = await apiPost({ action: "bootstrapAdmin", username, password });
-      if (result.status !== "ok") throw new Error(result.message || "Could not create account.");
-      session = { token: result.token, username: result.username, isAdmin: result.isAdmin };
-      saveSession(session);
-      await refreshFromSheet(true);
-    } catch (err) {
-      errorEl.textContent = err.message;
-    } finally {
-      btn.disabled = false; btn.textContent = "Create Account";
-    }
-  } else {
-    btn.disabled = true; btn.textContent = "Logging in…";
-    try {
-      const result = await apiPost({ action: "login", username, password });
-      if (result.status !== "ok") throw new Error(result.message || "Incorrect username or password.");
-      session = { token: result.token, username: result.username, isAdmin: result.isAdmin };
-      saveSession(session);
-      await refreshFromSheet(true);
-    } catch (err) {
-      errorEl.textContent = err.message;
-    } finally {
-      btn.disabled = false; btn.textContent = "Log In";
-    }
-  }
-});
-
-["authUsername", "authPassword", "authConfirmPassword"].forEach(id => {
-  document.getElementById(id).addEventListener("keydown", (e) => {
-    if (e.key === "Enter") document.getElementById("authSubmitBtn").click();
-  });
-});
-
-document.getElementById("logoutBtn").addEventListener("click", async () => {
-  if (!confirm("Log out of this account?")) return;
-  try { await apiPost({ action: "logout" }); } catch (e) { /* ignore network errors on logout */ }
-  session = null;
-  clearSession();
-  document.getElementById("settingsOverlay").classList.remove("open");
-  showAuthScreen(true);
-});
-
-/* ---------------- Backup / restore (own contacts only) ---------------- */
-
-document.getElementById("backupContactsBtn").addEventListener("click", async () => {
-  const status = document.getElementById("backupRestoreStatus");
-  status.style.color = "var(--muted)";
-  status.textContent = "Preparing backup…";
-  try {
-    const result = await apiPost({ action: "backupContacts" });
-    if (result.status !== "ok") throw new Error(result.message || "Could not create backup.");
-    const blob = new Blob([JSON.stringify(result.backup, null, 2)], { type: "application/json" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    const stamp = new Date().toISOString().slice(0, 10);
-    a.href = url;
-    a.download = `contacts-backup-${session.username}-${stamp}.json`;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(url);
-    status.style.color = "var(--muted)";
-    status.textContent = `Backed up ${result.backup.contacts.length} contact(s).`;
-  } catch (err) {
-    status.style.color = "var(--danger)";
-    status.textContent = err.message;
-  }
-});
-
-document.getElementById("restoreContactsBtn").addEventListener("click", () => {
-  document.getElementById("restoreFileInput").click();
-});
-
-document.getElementById("restoreFileInput").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  e.target.value = ""; // clear so picking the same file again still fires "change"
-  if (!file) return;
-  const status = document.getElementById("backupRestoreStatus");
-
-  const reader = new FileReader();
-  reader.onload = async () => {
-    let backup;
-    try {
-      backup = JSON.parse(reader.result);
-    } catch (err) {
-      status.style.color = "var(--danger)";
-      status.textContent = "That file isn't valid JSON.";
-      return;
-    }
-    if (!backup || !Array.isArray(backup.contacts)) {
-      status.style.color = "var(--danger)";
-      status.textContent = "That file doesn't look like a contacts backup.";
-      return;
-    }
-    const mismatchNote = (backup.username && backup.username !== session.username)
-      ? `\n\nNote: this backup was made from the account "${backup.username}", not your current account "${session.username}".`
-      : "";
-    const confirmed = confirm(
-      `Restore ${backup.contacts.length} contact(s) from this backup?\n\nThis replaces ALL of your current contacts — this can't be undone.${mismatchNote}`
-    );
-    if (!confirmed) return;
-
-    status.style.color = "var(--muted)";
-    status.textContent = "Restoring…";
-    try {
-      const result = await apiPost({ action: "restoreContacts", backup });
-      if (result.status !== "ok") throw new Error(result.message || "Could not restore backup.");
-      status.style.color = "var(--muted)";
-      status.textContent = `Restored ${result.restored} contact(s).`;
-      await refreshFromSheet(true);
-    } catch (err) {
-      status.style.color = "var(--danger)";
-      status.textContent = err.message;
-    }
-  };
-  reader.readAsText(file);
-});
-
-async function resetUserPassword(username) {
-  const newPassword = prompt(`New password for "${username}" (at least 4 characters):`);
-  if (newPassword === null) return; // cancelled
-  if (newPassword.trim().length < 4) { alert("Password must be at least 4 characters."); return; }
-  try {
-    const result = await apiPost({ action: "resetPassword", username, newPassword: newPassword.trim() });
-    if (result.status !== "ok") throw new Error(result.message || "Could not reset password.");
-    alert(`Password reset for "${username}". Share the new password with them directly.`);
-  } catch (err) {
-    alert("Could not reset password: " + err.message);
-  }
-}
-
-document.getElementById("addUserBtn").addEventListener("click", async () => {
-  const usernameInput = document.getElementById("newUsernameInput");
-  const passwordInput = document.getElementById("newUserPasswordInput");
-  const status = document.getElementById("addUserStatus");
-  const username = usernameInput.value.trim();
-  const password = passwordInput.value;
-
-  if (!username || !password) { status.style.color = "var(--danger)"; status.textContent = "Enter a username and password."; return; }
-  if (password.length < 4) { status.style.color = "var(--danger)"; status.textContent = "Password must be at least 4 characters."; return; }
-
-  status.style.color = "var(--muted)";
-  status.textContent = "Creating…";
-  try {
-    const result = await apiPost({ action: "createUser", username, password });
-    if (result.status !== "ok") throw new Error(result.message || "Could not create login.");
-    usernameInput.value = ""; passwordInput.value = "";
-    status.style.color = "var(--muted)";
-    status.textContent = `Created "${username}". Share the username and password with them directly.`;
-    loadUsersList();
-  } catch (err) {
-    status.style.color = "var(--danger)";
-    status.textContent = err.message;
-  }
-});
-
-document.getElementById("formCancelBtn").addEventListener("click", closeForm);
-document.getElementById("formSaveBtn").addEventListener("click", saveForm);
-
-document.getElementById("fPhotoInput").addEventListener("change", (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  if (!file.type.startsWith("image/")) {
-    alert("Please choose an image file.");
-    e.target.value = "";
-    return;
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    alert("Please choose an image under 5MB.");
-    e.target.value = "";
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    const result = reader.result; // "data:image/jpeg;base64,AAAA..."
-    const commaIdx = result.indexOf(",");
-    pendingPhotoMimeType = result.substring(5, result.indexOf(";"));
-    pendingPhotoBase64 = result.substring(commaIdx + 1);
-    photoRemoved = false;
-    updatePhotoPreview();
-  };
-  reader.readAsDataURL(file);
-});
-
-document.getElementById("removePhotoBtn").addEventListener("click", () => {
-  photoRemoved = true;
-  pendingPhotoBase64 = null;
-  pendingPhotoMimeType = null;
-  document.getElementById("fPhotoInput").value = "";
-  updatePhotoPreview();
-});
-
-document.getElementById("fName").addEventListener("input", () => {
-  if (!pendingPhotoBase64 && (photoRemoved || !currentPhotoUrl)) updatePhotoPreview();
-});
-
-document.getElementById("useLocationBtn").addEventListener("click", () => {
-  const btn = document.getElementById("useLocationBtn");
-  const status = document.getElementById("locationStatus");
-
-  if (!("geolocation" in navigator)) {
-    status.textContent = "This browser doesn't support location access.";
-    status.style.color = "var(--danger)";
-    return;
-  }
-
-  btn.disabled = true;
-  status.style.color = "var(--muted)";
-  status.textContent = "Getting your current location…";
-
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      document.getElementById("fLatitude").value = position.coords.latitude.toFixed(6);
-      document.getElementById("fLongitude").value = position.coords.longitude.toFixed(6);
-      status.style.color = "var(--muted)";
-      status.textContent = `Location captured (±${Math.round(position.coords.accuracy)}m accuracy).`;
-      btn.disabled = false;
-    },
-    (err) => {
-      // Common causes: user denied the permission prompt, or the site
-      // isn't served over HTTPS (GitHub Pages is, so this mainly
-      // matters if testing locally over plain http://).
-      let message = "Couldn't get your location.";
-      if (err.code === err.PERMISSION_DENIED) message = "Location access was denied. Check your browser/site permissions.";
-      else if (err.code === err.POSITION_UNAVAILABLE) message = "Location unavailable right now.";
-      else if (err.code === err.TIMEOUT) message = "Location request timed out. Try again.";
-      status.style.color = "var(--danger)";
-      status.textContent = message;
-      btn.disabled = false;
-    },
-    { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-  );
-});
-
-document.getElementById("addCategoryBtn").addEventListener("click", () => {
-  const input = document.getElementById("newCategoryInput");
-  const value = input.value.trim();
-  if (!value) return;
-  input.value = "";
-  addOption("Category", value);
-});
-document.getElementById("addBloodBtn").addEventListener("click", () => {
-  const input = document.getElementById("newBloodInput");
-  const value = input.value.trim();
-  if (!value) return;
-  input.value = "";
-  addOption("BloodGroup", value);
-});
-document.getElementById("addGroupBtn").addEventListener("click", () => {
-  const input = document.getElementById("newGroupInput");
-  const value = input.value.trim();
-  if (!value) return;
-  input.value = "";
-  addOption("Group", value);
-});
-
-/* ---------------- Tab bar / Recents / Keypad wiring ---------------- */
-
-document.querySelectorAll(".tab-btn").forEach(btn => {
-  btn.addEventListener("click", () => switchTab(btn.dataset.tab));
-});
-
-document.getElementById("clearRecentsBtn").addEventListener("click", () => {
-  if (!confirm("Clear all recent calls? This only affects this device.")) return;
-  recents = [];
-  saveRecents(recents);
-  renderRecents();
-});
-
-document.querySelectorAll(".keypad-key").forEach(key => {
-  key.addEventListener("click", () => {
-    keypadDigits += key.dataset.digit;
-    renderKeypad();
-  });
-});
-
-document.getElementById("keypadBackspaceBtn").addEventListener("click", () => {
-  keypadDigits = keypadDigits.slice(0, -1);
-  renderKeypad();
-});
-
-document.getElementById("keypadCallBtn").addEventListener("click", () => {
-  if (!keypadDigits) return;
-  const dialedDigits = keypadDigits;
-  const matched = findContactByPhone(dialedDigits);
-  addRecentCall(matched ? matched.Name : null, dialedDigits);
-  // Defer clearing the keypad — the browser's default action for this
-  // same click (following the tel: link) runs right after this handler
-  // returns, using whatever href is on the element at that moment.
-  // Resetting synchronously here was wiping the href out before the
-  // browser could actually place the call.
-  setTimeout(resetKeypad, 400);
-});
-
-/* ---------------- Boot ---------------- */
-
-rebuildBloodGroupSelect();
-renderCategoryChips();
-
-if (session && session.token) {
-  refreshFromSheet(true);
-} else {
-  apiGet().then(result => {
-    showAuthScreen(result && result.hasUsers);
-  }).catch(() => {
-    showAuthScreen(true); // network hiccup — default to the login form, user can retry
-  });
-}
+render();
 </script>
 </body>
 </html>
